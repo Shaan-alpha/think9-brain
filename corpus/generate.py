@@ -720,7 +720,9 @@ def generate(out_dir: Path) -> list[Path]:
     written: list[Path] = []
     for doc in all_documents():
         path = out_dir / doc.name
-        path.write_text(doc.render(), encoding="utf-8")
+        # newline="" keeps the LF this module writes; without it Windows rewrites them to
+        # CRLF, which every downstream regex anchored on \n would then miss.
+        path.write_text(doc.render(), encoding="utf-8", newline="")
         written.append(path)
     return written
 
