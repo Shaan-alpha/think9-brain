@@ -46,7 +46,7 @@ class VerificationResult:
 
 
 def verify(draft: str, chunks: list[RetrievedChunk], llm=None) -> VerificationResult:
-    valid_ids = {str(c.chunk_id) for c in chunks}
+    by_id = {str(c.chunk_id): c for c in chunks}
     corpus = " ".join(c.text for c in chunks)
 
     kept: list[str] = []
@@ -54,7 +54,7 @@ def verify(draft: str, chunks: list[RetrievedChunk], llm=None) -> VerificationRe
     verdicts: list[ClaimVerdict] = []
 
     for claim in [s.strip() for s in _SENTENCE.split(draft) if s.strip()]:
-        verdict = _judge(claim, valid_ids, corpus, llm)
+        verdict = _judge(claim, by_id, corpus, llm)
         verdicts.append(verdict)
         (kept if verdict.supported else stripped).append(claim)
 
@@ -63,14 +63,16 @@ def verify(draft: str, chunks: list[RetrievedChunk], llm=None) -> VerificationRe
     )
 
 
-def _judge(claim: str, valid_ids: set[str], corpus: str, llm) -> ClaimVerdict:
+def _judge(claim: str, by_id: dict[str, RetrievedChunk], corpus: str, llm) -> ClaimVerdict:
     cited = _CITATION.findall(claim)
     if not cited:
         return ClaimVerdict(claim, False, "no citation")
-    if any(cid not in valid_ids for cid in cited):
+    if any(cid not in by_id for cid in cited):
         return ClaimVerdict(claim, False, "citation does not resolve to a retrieved chunk")
 
     bare = _CITATION.sub("", claim)
+    # Numeric grounding scans the whole retrieved set: a figure invented outright is the
+    # target here, not a figure attributed to the wrong source.
     for number in _DIGITS.findall(bare):
         normalised = number.rstrip(".,")
         if normalised and normalised not in corpus:
@@ -79,8 +81,16 @@ def _judge(claim: str, valid_ids: set[str], corpus: str, llm) -> ClaimVerdict:
     if llm is None:
         return ClaimVerdict(claim, True, "deterministic checks passed; entailment skipped")
 
+    # Entailment reads only what the claim cites. Checking against the whole retrieved set
+    # asks the model to find a needle and makes it strip supported claims; it would also
+    # pass a claim that cites A while only B supports it, which is itself a miscitation.
+    evidence = "\n\n".join(
+        f"{by_id[cid].document.title} > {by_id[cid].heading_path}\n{by_id[cid].text}"
+        for cid in dict.fromkeys(cited)
+    )
+
     try:
-        reply = llm.complete(_ENTAILMENT_SYSTEM, f"EVIDENCE:\n{corpus}\n\nCLAIM:\n{bare}")
+        reply = llm.complete(_ENTAILMENT_SYSTEM, f"EVIDENCE:\n{evidence}\n\nCLAIM:\n{bare}")
     except Exception:  # noqa: BLE001 — fail closed; an unavailable check is not a pass
         return ClaimVerdict(claim, False, "entailment check unavailable")
     if reply.strip().upper().startswith("SUPPORTED"):

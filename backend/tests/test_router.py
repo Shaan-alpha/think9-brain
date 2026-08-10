@@ -38,6 +38,26 @@ def test_model_classification_is_used_when_it_returns_a_known_route():
     assert llm.calls
 
 
+def test_a_firing_deterministic_pattern_overrules_the_model():
+    """The patterns are high precision, and the small model gets this exact case wrong.
+
+    llama-3.1-8b-instant classified "show me total spend by vendor last quarter" as a
+    factual lookup, which would send an aggregation query into document retrieval rather
+    than declining it.
+    """
+    llm = StubLLM("factual_lookup")
+
+    assert classify("Show me total spend by vendor last quarter", llm) == "needs_structured_data"
+    assert llm.calls == []
+
+
+def test_the_model_is_only_consulted_when_no_pattern_fires():
+    llm = StubLLM("policy")
+
+    assert classify("What do we pay for amber glass?", llm) == "policy"
+    assert len(llm.calls) == 1
+
+
 def test_unrecognised_model_output_falls_back_to_the_deterministic_classifier():
     assert classify("Why did we kill the mango variant?", StubLLM("banana")) == (
         "decision_archaeology"

@@ -52,12 +52,23 @@ def classify_deterministic(question: str) -> Route:
 
 
 def classify(question: str, llm=None) -> Route:
+    """Deterministic patterns win when they fire; the model breaks the remaining ties.
+
+    The patterns are high precision and low recall — they only match distinctive phrasing
+    like "why did we" or "total spend by vendor" — so a match is strong evidence. A small
+    fast model is good at the open-ended remainder and demonstrably wrong on the rest: it
+    classified "show me total spend by vendor last quarter" as a factual lookup, which
+    would have sent an aggregation query into document retrieval instead of declining it.
+    """
+    deterministic = classify_deterministic(question)
+    if deterministic != "factual_lookup":
+        return deterministic
     if llm is None:
-        return classify_deterministic(question)
+        return deterministic
     try:
         label = llm.complete(_SYSTEM, question, model=get_settings().router_model).strip().lower()
     except Exception:  # noqa: BLE001 — any provider failure must degrade, never propagate
         # Rate limit, timeout, bad key, provider outage: the deterministic classifier is
         # a complete substitute, so there is no failure here worth surfacing to the user.
-        return classify_deterministic(question)
-    return label if label in ROUTES else classify_deterministic(question)
+        return deterministic
+    return label if label in ROUTES else deterministic

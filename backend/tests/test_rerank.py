@@ -4,16 +4,52 @@ from think9.models import Candidate
 from think9.retrieval.rerank import Reranker
 
 
-def _c(text, rank):
+def _c(text, rank, heading_path="h"):
     return Candidate(
         chunk_id=uuid4(),
         document_id=uuid4(),
         text=text,
-        heading_path="h",
+        heading_path=heading_path,
         score=0.5,
         rank=rank,
         source="fused",
     )
+
+
+def test_scores_are_probabilities_not_logits():
+    """A raw cross-encoder score is an unbounded logit, so a threshold against it is
+    meaningless. Squashing to (0,1) makes tau interpretable: above 0.5 means the reranker
+    judges the passage more likely relevant than not."""
+    candidates = [
+        _c("50ml amber glass jars are priced at Rs 22.10 per unit.", 1),
+        _c("The mitochondrion is the powerhouse of the cell.", 2),
+    ]
+
+    reranked = Reranker().rerank("what do we pay for amber glass", candidates)
+
+    assert all(0.0 < c.score < 1.0 for c in reranked)
+    assert reranked[0].score > 0.5
+    assert reranked[-1].score < 0.5
+
+
+def test_the_heading_path_is_visible_to_the_reranker():
+    """The vendor name often lives in the heading, not the chunk body.
+
+    Without this, "What is Korent's MOQ?" reranks a different vendor's spec sheet to the
+    top, because every spec sheet's body reads "Minimum order quantity: N units".
+    """
+    candidates = [
+        _c("Minimum order quantity: 15,000 units.", 1, heading_path="Sundara Caps > Constraints"),
+        _c(
+            "Minimum order quantity: 5,000 units.",
+            2,
+            heading_path="Korent Glassworks > Constraints",
+        ),
+    ]
+
+    reranked = Reranker().rerank("What is Korent's minimum order quantity?", candidates)
+
+    assert "5,000" in reranked[0].text
 
 
 def test_reranker_promotes_the_genuinely_relevant_passage():
