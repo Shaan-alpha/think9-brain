@@ -8,4 +8,4 @@ line-length = 100
 extend-exclude = ["docs", "backend/.venv", "corpus/out"]
 
 [lint.isort]
-known-first-party = ["think9", "corpus", "eval"]
+known-first-party = ["think9", "corpus", "eval", "tests"]

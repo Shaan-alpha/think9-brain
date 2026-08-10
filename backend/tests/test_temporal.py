@@ -1,30 +1,9 @@
-from datetime import UTC, date, datetime
+from datetime import date
 from uuid import uuid4
 
-from think9.models import Document, RetrievedChunk
+from tests.conftest import make_document
+from think9.models import RetrievedChunk
 from think9.retrieval.temporal import apply_temporal_authority, as_of_date
-
-
-def make_document(**overrides) -> Document:
-    base = {
-        "id": uuid4(),
-        "source_system": "google_drive",
-        "source_id": f"file-{uuid4()}",
-        "deep_link": "https://drive/x",
-        "title": "Korent Quote",
-        "doc_type": "vendor_quote",
-        "brand_id": "nuvia",
-        "function": "procurement",
-        "author": "arun@think9.test",
-        "created_at": datetime(2026, 1, 5, tzinfo=UTC),
-        "effective_date": date(2026, 1, 5),
-        "supersedes_id": None,
-        "acl": ("procurement",),
-        "sensitive": False,
-        "content_hash": "hash",
-    }
-    return Document(**{**base, **overrides})
-
 
 OLD = make_document(title="Korent Quote 2024", effective_date=date(2024, 3, 12), is_superseded=True)
 NEW = make_document(
