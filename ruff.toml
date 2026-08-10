@@ -1,0 +1,11 @@
+# Repo-root ruff config. Python lives in three places — backend/, corpus/ and eval/ — so
+# the config has to sit above all of them; a config inside backend/ is not consulted for
+# files outside it.
+line-length = 100
+
+# Ruff formats Python code blocks inside Markdown. The spec and plan are a record of what
+# was decided, not source, and reformatting them churns the diff for no gain.
+extend-exclude = ["docs", "backend/.venv", "corpus/out"]
+
+[lint.isort]
+known-first-party = ["think9", "corpus", "eval"]

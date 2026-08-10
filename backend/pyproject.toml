@@ -32,5 +32,9 @@ include = ["think9*"]
 testpaths = ["tests"]
 pythonpath = [".", ".."]
 
-[tool.ruff]
-line-length = 100
+# Ruff is configured once at the repo root in ruff.toml, because corpus/ and eval/ sit
+# outside this directory and a config here would not be consulted for them.
+
+[tool.pyright]
+# Mirror the pytest pythonpath so editors resolve `corpus.*` and `eval.*` too.
+extraPaths = [".."]
