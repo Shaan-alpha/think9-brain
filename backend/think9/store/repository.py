@@ -1,3 +1,5 @@
+import json
+from datetime import date
 from uuid import UUID, uuid4
 
 import psycopg
@@ -109,6 +111,76 @@ class Repository:
             (uuid4(), owner.brand_id, owner.function, owner.person_name, owner.contact),
         )
         self.conn.commit()
+
+    def log_query(
+        self,
+        *,
+        user_id: str,
+        question: str,
+        route: str,
+        coverage_score: float,
+        outcome: str,
+        answer_text: str,
+        citations: list[dict],
+        as_of: date | None,
+        trace: dict,
+    ) -> UUID:
+        """Every answer must be reconstructable after the fact."""
+        query_id = uuid4()
+        self.conn.execute(
+            """INSERT INTO query_log (id, user_id, question, route, coverage_score, outcome,
+                                      answer_text, citations, as_of, trace)
+               VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (
+                query_id,
+                user_id,
+                question,
+                route,
+                coverage_score,
+                outcome,
+                answer_text,
+                json.dumps(citations, default=str),
+                as_of,
+                json.dumps(trace, default=str),
+            ),
+        )
+        self.conn.commit()
+        return query_id
+
+    def insert_canon(
+        self,
+        *,
+        question: str,
+        answer: str,
+        author: str,
+        source_query_id: UUID | None,
+        effective_date: date,
+    ) -> UUID:
+        """An owner's reply, captured as a first-class memory entry.
+
+        This is the compounding loop: coverage improves as a by-product of people
+        answering questions they were going to be asked anyway.
+        """
+        canon_id = uuid4()
+        self.conn.execute(
+            """INSERT INTO canon (id, question, answer, author, source_query_id, effective_date)
+               VALUES (%s,%s,%s,%s,%s,%s)""",
+            (canon_id, question, answer, author, source_query_id, effective_date),
+        )
+        self.conn.commit()
+        return canon_id
+
+    def recent_gaps(self, limit: int = 20) -> list[dict]:
+        rows = self.conn.execute(
+            """SELECT question, route, coverage_score, asked_at FROM query_log
+               WHERE outcome IN ('refused', 'routed')
+               ORDER BY asked_at DESC LIMIT %s""",
+            (limit,),
+        ).fetchall()
+        return [
+            {"question": r[0], "route": r[1], "coverage": r[2], "asked_at": r[3].isoformat()}
+            for r in rows
+        ]
 
     def find_owner(self, brand_id: str, function: str) -> Owner | None:
         row = self.conn.execute(

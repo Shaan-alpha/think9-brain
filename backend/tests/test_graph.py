@@ -134,6 +134,48 @@ def test_a_draft_that_fails_verification_becomes_a_refusal():
     assert "99.99" not in answer.text
 
 
+def test_a_contested_fact_diverts_before_synthesis():
+    """No model gets the chance to pick a winner between two live, conflicting sources."""
+    spec = make_document(title="korent-spec-sheet-2025-11.md")
+    annexe = make_document(title="korent-contract-annexe-2025-12.md")
+    contested = RetrievalResult(
+        chunks=[
+            RetrievedChunk(
+                uuid4(), spec, "Constraints", "Minimum order quantity: 5,000 units.", 0.9
+            ),
+            RetrievedChunk(
+                uuid4(), annexe, "Clause 4.1", "Minimum order quantity: 8,000 units.", 0.88
+            ),
+        ],
+        as_of=date(2026, 1, 5),
+        coverage=0.9,
+        trace={},
+    )
+
+    class CountingLLM(StubLLM):
+        def __init__(self):
+            self.synthesis_calls = 0
+
+        def complete(self, system, user, model=None):
+            if "Cite every factual claim" in system:
+                self.synthesis_calls += 1
+            return super().complete(system, user, model)
+
+    llm = CountingLLM()
+    answer = ask(
+        build_graph(StubRetriever(contested), StubRepo(), llm),
+        "What is Korent's minimum order quantity?",
+        ["procurement"],
+        "u1",
+    )
+
+    assert answer.outcome == "contested"
+    assert "5,000" in answer.text
+    assert "8,000" in answer.text
+    assert "Priya Nair" in answer.text
+    assert llm.synthesis_calls == 0
+
+
 def test_scope_inference_reads_the_brand_and_function_from_the_question():
     assert infer_scope("What does Grove pay for glass?") == ("grove", "procurement")
     assert infer_scope("What is Nuvia's creator exclusivity window?") == ("nuvia", "brand_ops")

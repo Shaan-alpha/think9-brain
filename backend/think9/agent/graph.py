@@ -14,7 +14,9 @@ from think9.agent.router import classify
 from think9.agent.state import BrainState
 from think9.agent.verifier import verify
 from think9.config import get_settings
-from think9.models import Answer
+from think9.gates.contested import describe, detect_contested
+from think9.gates.sensitive import frame_sensitive
+from think9.models import Answer, Citation
 from think9.retrieval.temporal import as_of_date
 
 STRUCTURED_DECLINE = (
@@ -52,8 +54,10 @@ def build_graph(retriever, repo, llm):
 
     def retrieve_documents(state: BrainState) -> dict:
         result = retriever.retrieve(state["question"], state["route"], state["user_groups"])
+        contested = detect_contested(result.chunks)
         return {
             "retrieval": result,
+            "contested": contested,
             "trace": {"retrieval": result.trace, "coverage": result.coverage},
         }
 
@@ -69,6 +73,37 @@ def build_graph(retriever, repo, llm):
         draft, citations = synthesise(llm, state["question"], state["retrieval"].chunks)
         return {"draft": draft, "citations": citations, "trace": {"draft": draft}}
 
+    def contested_node(state: BrainState) -> dict:
+        """Surface both values and name the arbiter, rather than letting the model choose.
+
+        This runs before synthesis deliberately. Given two conflicting figures a model
+        will reliably invent a reason to prefer one — on this corpus it claimed the later
+        document superseded the earlier, which is exactly what neither document says.
+        """
+        finding = state["contested"]
+        finding.arbiter = state.get("owner")
+        chunks = state["retrieval"].chunks
+        citations = tuple(
+            Citation(
+                chunk_id=c.chunk_id,
+                document_title=c.document.title,
+                heading_path=c.heading_path,
+                deep_link=c.document.deep_link,
+                effective_date=c.document.effective_date,
+            )
+            for c in chunks
+            if not c.demoted and any(title == c.document.title for _, title in finding.values)
+        )
+        return {
+            "answer": Answer(
+                text=describe(finding),
+                outcome="contested",
+                citations=citations,
+                as_of=as_of_date(chunks),
+            ),
+            "trace": {"contested": {"attribute": finding.attribute, "values": finding.values}},
+        }
+
     def verify_node(state: BrainState) -> dict:
         result = verify(state["draft"], state["retrieval"].chunks, llm)
         trace = {
@@ -77,23 +112,20 @@ def build_graph(retriever, repo, llm):
                 "claims": [v.__dict__ for v in result.claims],
             }
         }
+        chunks = state["retrieval"].chunks
         if result.refused:
             # Everything load-bearing was stripped. Refusing beats shipping the remainder.
             return {
-                "answer": build_refusal(
-                    state["question"], state["retrieval"].chunks, state.get("owner")
-                ),
+                "answer": build_refusal(state["question"], chunks, state.get("owner")),
                 "trace": trace,
             }
-        return {
-            "answer": Answer(
-                text=result.text,
-                outcome="answered",
-                citations=state["citations"],
-                as_of=as_of_date(state["retrieval"].chunks),
-            ),
-            "trace": trace,
-        }
+        answered = Answer(
+            text=result.text,
+            outcome="answered",
+            citations=state["citations"],
+            as_of=as_of_date(chunks),
+        )
+        return {"answer": frame_sensitive(answered, chunks), "trace": trace}
 
     def refuse_node(state: BrainState) -> dict:
         retrieval = state.get("retrieval")
@@ -107,13 +139,18 @@ def build_graph(retriever, repo, llm):
         return "decline_structured" if state["route"] == "needs_structured_data" else "retrieve"
 
     def after_retrieval(state: BrainState) -> str:
-        return "synthesise" if state["retrieval"].coverage >= tau else "refuse"
+        if state["retrieval"].coverage < tau:
+            return "refuse"
+        # Contested facts divert before synthesis, never after: the whole point is that no
+        # model gets the chance to pick a winner.
+        return "contested" if state.get("contested") else "synthesise"
 
     builder = StateGraph(BrainState)
     builder.add_node("route", route_node)
     builder.add_node("retrieve_documents", retrieve_documents)
     builder.add_node("retrieve_owner", retrieve_owner)
     builder.add_node("synthesise", synthesise_node)
+    builder.add_node("contested", contested_node)
     builder.add_node("verify", verify_node)
     builder.add_node("refuse", refuse_node)
     builder.add_node("decline_structured", decline_structured)
@@ -133,8 +170,9 @@ def build_graph(retriever, repo, llm):
     builder.add_conditional_edges(
         "retrieve_documents",
         after_retrieval,
-        {"synthesise": "synthesise", "refuse": "refuse"},
+        {"synthesise": "synthesise", "refuse": "refuse", "contested": "contested"},
     )
+    builder.add_edge("contested", END)
     builder.add_edge("synthesise", "verify")
     builder.add_edge("verify", END)
     builder.add_edge("refuse", END)

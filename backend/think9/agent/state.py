@@ -19,5 +19,6 @@ class BrainState(TypedDict, total=False):
     owner: Owner | None
     draft: str
     citations: tuple[Citation, ...]
+    contested: Any  # ContestedFinding | None; Any avoids importing the gate into state
     answer: Answer | None
     trace: Annotated[dict[str, Any], merge_trace]
