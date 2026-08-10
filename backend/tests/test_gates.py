@@ -65,6 +65,26 @@ def test_different_vendors_disagreeing_is_not_a_conflict():
     )
 
 
+def test_the_same_vendor_serving_two_brands_is_not_a_conflict():
+    """Nuvia's Rs 22.10 50ml jar and Grove's Rs 20.75 180ml vessel are both correct.
+
+    Same supplier, different brand, different product. Scoping on supplier alone reported
+    this as a contested price on the headline demo question.
+    """
+    nuvia = make_document(title="korent-quote-2026-01.md", brand_id="nuvia")
+    grove = make_document(title="korent-quote-grove-2025-09.md", brand_id="grove")
+
+    assert (
+        detect_contested(
+            [
+                _chunk(nuvia, "50ml amber glass jar: Rs 22.10 per unit.", "Pricing"),
+                _chunk(grove, "180ml amber glass vessel: Rs 20.75 per unit.", "Pricing"),
+            ]
+        )
+        is None
+    )
+
+
 def test_a_demoted_source_does_not_create_a_conflict():
     """A superseded document is not a competing claim; it is a former one."""
     demoted = replace(_chunk(ANNEXE, "Minimum order quantity: 8,000 units."), demoted=True)

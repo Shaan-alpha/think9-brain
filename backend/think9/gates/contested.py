@@ -26,14 +26,16 @@ class ContestedFinding:
     arbiter: Owner | None = None
 
 
-def _entity(chunk: RetrievedChunk) -> str:
-    """Which supplier a chunk is about, taken from the leading token of its filename.
+def _entity(chunk: RetrievedChunk) -> tuple[str, str]:
+    """The (supplier, brand) a chunk is about. Conflicts are only meaningful within one.
 
-    Every spec sheet in the corpus states a minimum order quantity, so an attribute-only
-    comparison would report a conflict between two vendors that simply have different
-    terms. Conflicts are only meaningful within one entity.
+    Supplier scoping alone is too loose in both directions. Without it, every spec sheet
+    states a minimum order quantity and two different vendors look like they disagree.
+    With supplier alone but not brand, Nuvia's Rs 22.10 for a 50ml jar and Grove's Rs 20.75
+    for a 180ml vessel — same vendor, different products — read as a contested price when
+    both are simply correct.
     """
-    return chunk.document.title.split("-")[0].lower()
+    return chunk.document.title.split("-")[0].lower(), chunk.document.brand_id
 
 
 def detect_contested(chunks: list[RetrievedChunk]) -> ContestedFinding | None:
@@ -42,7 +44,7 @@ def detect_contested(chunks: list[RetrievedChunk]) -> ContestedFinding | None:
     live = [c for c in chunks if not c.demoted]
 
     for attribute, pattern in _ATTRIBUTES.items():
-        by_entity: dict[str, dict[str, str]] = {}
+        by_entity: dict[tuple[str, str], dict[str, str]] = {}
         for chunk in live:
             match = pattern.search(chunk.text)
             if not match:

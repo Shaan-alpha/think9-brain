@@ -11,11 +11,22 @@ from pathlib import Path
 from think9.config import get_settings
 from think9.ingest.drive import DriveClient, LocalFolderClient, build_service
 from think9.ingest.pipeline import ingest
+from think9.models import Owner
 from think9.retrieval.embed import Embedder
 from think9.store.db import apply_schema, connect
 from think9.store.repository import Repository
 
 CORPUS_MIRROR = Path(__file__).resolve().parents[3] / "corpus" / "out"
+
+# SYNTHETIC. Who a refusal routes to. Without these a refusal is honest but not useful.
+OWNERS = (
+    Owner("nuvia", "procurement", "Priya Nair", "priya@think9.test"),
+    Owner("grove", "procurement", "Arun Menon", "arun@think9.test"),
+    Owner("shared", "procurement", "Arun Menon", "arun@think9.test"),
+    Owner("nuvia", "brand_ops", "Meera Rao", "meera@think9.test"),
+    Owner("grove", "brand_ops", "Meera Rao", "meera@think9.test"),
+    Owner("shared", "brand_ops", "Meera Rao", "meera@think9.test"),
+)
 
 
 def main() -> int:
@@ -31,6 +42,8 @@ def main() -> int:
     conn = connect(settings.database_url)
     apply_schema(conn)
     repo = Repository(conn)
+    for owner in OWNERS:
+        repo.upsert_owner(owner)
 
     report = ingest(client, repo, Embedder(), settings.drive_folder_id)
 
