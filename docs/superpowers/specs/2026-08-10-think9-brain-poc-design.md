@@ -71,10 +71,7 @@ they are what the evaluation asserts against.
 | 2 | Two current, non-superseding sources give MOQs of 5,000 and 8,000 units for the same vendor | §2.6 contested-fact gate | "What's Korent's MOQ?" — must surface both and name the arbiter |
 | 3 | Both `nuvia` and `grove` bought from `Korent` at different unit prices and payment terms | §3 cross-brand synthesis | "Which brands use Korent and on what terms?" — retrieve, join, compare |
 | 4 | A plausible operational question with no supporting document anywhere in the corpus | §3 refusal | Must decline, cite nearest evidence, and route to the owner |
-
-A fifth pattern, needed for the `decision_archaeology` route: a decision memo explaining
-why a product variant was discontinued, whose supporting evidence is an older superseded
-document. This is the case where the temporal layer must **not** demote history — see §4.4.
+| 5 | A decision memo explaining why a variant was discontinued, whose supporting evidence is an older, superseded document | §4.4 route-aware temporal handling | "Why did we kill the mango variant?" — history must **not** be demoted here |
 
 ### 2.3 Owners
 
@@ -103,6 +100,7 @@ documents (
   effective_date date,         -- when the fact became true, not when the file was made
   supersedes_id uuid references documents(id),
   acl           text[],        -- group names inherited from the source
+  sensitive     boolean,       -- drives HITL gate 4
   content_hash  text,
   ingested_at   timestamptz
 )
@@ -132,9 +130,10 @@ becomes a first-class retrievable document. This is the compounding loop in §2.
 concrete.
 
 **Provenance is not optional metadata.** `deep_link` is what makes a citation clickable;
-`acl` is what makes §2.7 enforceable; `effective_date` and `supersedes_id` are what make
-§2.4 possible. A document missing any of them fails ingestion loudly rather than entering
-the index degraded.
+`acl` is what makes §2.7 enforceable; `effective_date` is what makes §2.4 possible. Those
+three, plus `brand_id`, `function` and `doc_type`, are required: a document missing any of
+them fails ingestion loudly rather than entering the index degraded. `supersedes_id` is
+legitimately null for any document that supersedes nothing, which is most of them.
 
 ---
 
@@ -215,7 +214,7 @@ This verifier closes that gap, and the ablation in §7.3 measures whether it doe
 | 1 — Write-path | Satisfied by construction | The system is read-only. Documented, not built. |
 | 2 — Low-confidence | Built | Below τ, the query routes to the named owner with the draft attached. The owner's reply is written to `canon` and becomes retrievable. |
 | 3 — Contested-fact | Built | Two live, non-superseding sources disagreeing on the same `(vendor, attribute)` → surface both with dates, name the arbiter, write the arbitration to `canon`. |
-| 4 — Sensitive-class | Built (rule-based) | `function ∈ {legal, finance, people}` → sources always shown, answer framed as evidence rather than conclusion. |
+| 4 — Sensitive-class | Built (rule-based) | Triggered by `doc_type = contract` or by a `sensitive` flag set on the document at ingestion — the corpus has only two functions, so the class is carried on the document, not the function. Sources are always shown and the answer is framed as evidence rather than conclusion. |
 | 5 — Gap digest | Built | A query over `query_log` for refusals and low-confidence outcomes, rendered as the documentation backlog. |
 
 ---
@@ -229,7 +228,7 @@ exactly, because that discipline is what made those numbers believable.
 
 | Set | Size | Composition | Use |
 |---|---|---|---|
-| Dev | ~60 | 40 answerable, 20 not | Fit τ, RRF weights and the coverage threshold by sweep |
+| Dev | ~60 | 40 answerable, 20 not | Fit τ (the §5 coverage threshold), the RRF constant and the rerank cut-off by sweep |
 | Test | ~40 | ~28 answerable, ~12 not | **Run once**, after tuning is frozen |
 
 Every question is tagged with its category — `lookup`, `temporal`, `cross_brand`,
