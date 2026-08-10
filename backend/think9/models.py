@@ -83,6 +83,20 @@ class RetrievedChunk:
     demoted_by: UUID | None = None
 
 
+@dataclass
+class RetrievalResult:
+    """Everything the retrieval pipeline learned about one question.
+
+    Lives here rather than in retrieval/ so the agent can depend on the shape without
+    depending on the store.
+    """
+
+    chunks: list[RetrievedChunk]
+    as_of: date | None
+    coverage: float
+    trace: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass(frozen=True)
 class Citation:
     chunk_id: UUID
