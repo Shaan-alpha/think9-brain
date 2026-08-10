@@ -55,12 +55,6 @@ class Repository:
         ).fetchone()
         return _row_to_document(row) if row else None
 
-    def find_document_by_title(self, title: str) -> Document | None:
-        row = self.conn.execute(
-            f"SELECT {_DOC_COLUMNS} FROM documents WHERE title = %s", (title,)
-        ).fetchone()
-        return _row_to_document(row) if row else None
-
     def insert_chunks(
         self, document_id: UUID, chunks: list[ParsedChunk], embeddings: list[list[float]]
     ) -> list[UUID]:

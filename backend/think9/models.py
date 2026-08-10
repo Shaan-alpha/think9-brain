@@ -49,15 +49,6 @@ class ParsedChunk:
 
 
 @dataclass(frozen=True)
-class Chunk:
-    id: UUID
-    document_id: UUID
-    ordinal: int
-    heading_path: str
-    text: str
-
-
-@dataclass(frozen=True)
 class Candidate:
     """One hit from one retrieval arm, before fusion."""
 

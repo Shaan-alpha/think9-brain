@@ -8,6 +8,16 @@ which is which.
 import sys
 from pathlib import Path
 
+# Load backend/.env for local runs. Render supplies real environment variables, and
+# python-dotenv is a dev dependency, so a missing import is not an error there.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+except ModuleNotFoundError:
+    pass
+
+# Imports follow the .env load deliberately: settings are read at import time.
 from think9.config import get_settings
 from think9.ingest.drive import DriveClient, LocalFolderClient, build_service
 from think9.ingest.pipeline import ingest
@@ -29,6 +39,11 @@ OWNERS = (
 )
 
 
+def _count(conn, sql: str) -> int:
+    row = conn.execute(sql).fetchone()
+    return row[0] if row else 0
+
+
 def main() -> int:
     settings = get_settings()
     if settings.google_credentials_json:
@@ -47,9 +62,9 @@ def main() -> int:
 
     report = ingest(client, repo, Embedder(), settings.drive_folder_id)
 
-    documents = conn.execute("SELECT count(*) FROM documents").fetchone()[0]
-    chunks = conn.execute("SELECT count(*) FROM chunks").fetchone()[0]
-    superseded = conn.execute("SELECT count(*) FROM documents WHERE is_superseded").fetchone()[0]
+    documents = _count(conn, "SELECT count(*) FROM documents")
+    chunks = _count(conn, "SELECT count(*) FROM chunks")
+    superseded = _count(conn, "SELECT count(*) FROM documents WHERE is_superseded")
     conn.close()
 
     print(
