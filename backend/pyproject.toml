@@ -1,0 +1,36 @@
+[project]
+name = "think9"
+version = "0.1.0"
+description = "Think9 Brain — grounded institutional memory over a synthetic multi-brand corpus"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3",
+    "fastembed>=0.8",
+    "numpy>=2.0",
+    "langgraph>=1.0",
+    "openai>=1.60",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "google-api-python-client>=2.150",
+    "google-auth>=2.35",
+    "pypdf>=5.0",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "ruff>=0.8", "httpx>=0.28"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["think9*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", ".."]
+
+[tool.ruff]
+line-length = 100
