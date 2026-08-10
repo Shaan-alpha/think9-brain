@@ -1,0 +1,61 @@
+question,category,answerable,expected_substrings,must_not_contain,gold_document
+What is the unit price for Marfil Labels pressure-sensitive labels for Nuvia?,lookup,true,3.15,,marfil-labels-quote-nuvia
+What SKU covers the Aster Pumps treatment pumps?,lookup,true,AST,,aster-pumps-spec
+What is the minimum order quantity for Aster Pumps?,lookup,true,"8,000",,aster-pumps-spec
+What dose do the Aster treatment pumps deliver?,lookup,true,0.2,,aster-pumps-spec
+What lead time does Marfil Labels quote for Nuvia?,lookup,true,14,,marfil-labels-quote-nuvia
+What weight of board do Vermeer Cartons use?,lookup,true,350,,vermeer-cartons
+What is the minimum order quantity for Nilkanth Films shrink sleeve film?,lookup,true,"30,000",,nilkanth-films-spec
+What does Basil & Ash supply to us?,lookup,true,fragrance,,basil-ash
+What is the AQL on major defects?,lookup,true,2.5,,spec
+What neck finish does the Korent 50ml jar use?,lookup,true,42mm,,korent-spec-sheet
+What is the SKU for the Korent amber glass jar?,lookup,true,AMB-50-FL,,korent-spec-sheet
+What is the payment term on the current Korent quote for Nuvia?,lookup,true,45,,korent-quote-2026-01
+What does Wexley Botanicals supply?,lookup,true,oil,,wexley
+What is the unit price for Halden Glass 30ml frosted bottles for Nuvia?,lookup,true,16.80,,halden-glass-quote-nuvia
+What is the minimum order quantity for Tessell Textiles?,lookup,true,"5,000",,tessell-textiles-spec
+What was raised about the Aster pump dose?,lookup,true,0.23,,procurement-thread-pump-dose-variance
+What did the Nuvia Q3 procurement review name as the concentration risk?,lookup,true,glass,,procurement-review-nuvia-2025-10
+What is the unit price for Corin Print outer shippers for Grove?,lookup,true,22.40,,corin-print-quote-grove
+What is our standard creator exclusivity window?,policy,true,90,,creator-contract-policy
+At what rate can creator usage rights be extended?,policy,true,30,,creator-contract-policy
+Who is a reported skin reaction escalated to?,policy,true,formulation lead,,returns-policy
+What unit cost premium do we accept for mono-material packaging?,policy,true,12,,packaging-sustainability
+Which component is exempt from the mono-material packaging requirement?,policy,true,pump,,packaging-sustainability
+What surface does Nuvia photography use?,policy,true,stone,,nuvia-photography-brief
+How narrowly is creator category exclusivity defined?,policy,true,fragrance,,creator-contract-policy
+What must be checked before raising a purchase order?,policy,true,effective date,,launch-checklist
+What do we pay for 50ml amber glass?,temporal,true,22.10,18.40,korent-quote-2026-01
+What lead time does Korent quote for Nuvia now?,temporal,true,28,21,korent-quote-2026-01
+Are folding cartons still required on Nuvia serum SKUs?,temporal,true,owned,,nuvia-packaging-policy-v2
+What is the current Korent unit rate for the Nuvia serum jar?,temporal,true,22.10,18.40,korent-quote-2026-01
+"Which brands buy from Korent, and on what terms?",cross_brand,true,Nuvia;Grove,,korent-quote-grove
+What rate does Grove get from Korent compared with Nuvia?,cross_brand,true,20.75,,korent-quote-grove
+Which brands buy from Aster Pumps?,cross_brand,true,aster,,aster-pumps-quote
+Compare the Korent lead times quoted to Nuvia and Grove.,cross_brand,true,24,,korent-quote-grove
+What is Korent's minimum order quantity?,contested,true,"5,000;8,000",,korent-contract-annexe
+How many units must we order from Korent per colour run?,contested,true,"5,000;8,000",,korent-spec-sheet
+Why did we discontinue the mango variant?,archaeology,true,panel,,grove-mango-decision-memo
+Why did we stop the blanket sampling programme?,archaeology,true,social,,sampling-programme
+Why was the creator exclusivity window shortened?,archaeology,true,180,,creator-contract-policy
+Why was the folding carton requirement relaxed on serum SKUs?,archaeology,true,owned,,nuvia-packaging-policy-v2
+What is our standard freight insurance excess for sea shipments?,unanswerable,false,,,
+What is our carbon offset budget for this financial year?,unanswerable,false,,,
+Which courier do we use for direct-to-consumer shipments in the south zone?,unanswerable,false,,,
+What is the warranty period on Korent tooling?,unanswerable,false,,,
+What is our policy on influencer gifting tax reporting?,unanswerable,false,,,
+What is the unit price for Larkspur Ceramics jars?,unanswerable,false,,,
+What is the notice period in our supply agreement with Sundara Caps?,unanswerable,false,,,
+What is our target gross margin on the Grove candle range?,unanswerable,false,,,
+Which warehouse holds Nuvia finished goods?,unanswerable,false,,,
+What is the escalation path for a customs hold?,unanswerable,false,,,
+What is our standard payment term with Larkspur Ceramics?,unanswerable,false,,,
+How much did we spend on paid social last quarter?,unanswerable,false,,,
+What is the shelf life of the Grove fig candle?,unanswerable,false,,,
+Who signs off on capital expenditure above ten lakh?,unanswerable,false,,,
+What is our data retention period for customer records?,unanswerable,false,,,
+What is the reorder point for Marfil label stock?,unanswerable,false,,,
+What is the penalty clause for late delivery from Vermeer?,unanswerable,false,,,
+Which testing lab certifies our SPF claims?,unanswerable,false,,,
+What is our returns rate for the Nuvia serum?,unanswerable,false,,,
+What is the tooling amortisation schedule for Halden Glass?,unanswerable,false,,,

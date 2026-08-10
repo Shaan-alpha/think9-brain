@@ -54,7 +54,7 @@ def build_graph(retriever, repo, llm):
 
     def retrieve_documents(state: BrainState) -> dict:
         result = retriever.retrieve(state["question"], state["route"], state["user_groups"])
-        contested = detect_contested(result.chunks)
+        contested = detect_contested(state["question"], result.chunks)
         return {
             "retrieval": result,
             "contested": contested,

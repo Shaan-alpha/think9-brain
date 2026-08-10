@@ -1,0 +1,43 @@
+question,category,answerable,expected_substrings,must_not_contain,gold_document
+What is the unit price for Sundara Caps closures for Nuvia?,lookup,true,4.60,,sundara-caps-quote-nuvia
+What size closure does Sundara Caps supply?,lookup,true,42mm,,sundara-caps
+What is the minimum order quantity for Vermeer Cartons?,lookup,true,"12,000",,vermeer-cartons-spec
+What is the minimum order quantity for Corin Print?,lookup,true,"5,000",,corin-print-spec
+What does Corin Print supply?,lookup,true,shipper,,corin-print
+What is the unit price for Nilkanth Films for Grove?,lookup,true,2.05,,nilkanth-films-quote-grove
+What is the minimum order quantity for Basil & Ash fragrance concentrate?,lookup,true,25,,basil-ash-spec
+What is the unit price for Wexley Botanicals carrier oil for Nuvia?,lookup,true,640,,wexley-botanicals-quote-nuvia
+What documentation must accompany each delivery?,lookup,true,conformance,,spec
+What is the AQL on minor defects?,lookup,true,4.0,,spec
+What is the minimum order quantity for Halden Glass?,lookup,true,"6,000",,halden-glass-spec
+What is the unit price for Tessell Textiles dust covers for Grove?,lookup,true,18.25,,tessell-textiles-quote-grove
+What did the Grove Q4 procurement review name as the live supply risk?,lookup,true,oil,,procurement-review-grove-2026-01
+What problem was reported with Marfil labels?,lookup,true,seam,,procurement-thread-label-adhesion
+Does a skincare exclusivity bar a home fragrance collaboration?,policy,true,fragrance,,creator-contract-policy
+How many creator deliverables must be approved before the on-sale date?,policy,true,three,,launch-checklist
+What surface does Grove photography use?,policy,true,timber,,grove-photography-brief
+What is the returns window for opened goods where a reaction is reported?,policy,true,fourteen,,returns-policy
+How quickly must a review at or below three stars be answered?,policy,true,two working days,,review-response-standards
+What do we pay for 50ml amber glass?,temporal,true,22.10,18.40,korent-quote-2026-01
+What is Korent's current payment term for Nuvia?,temporal,true,45,,korent-quote-2026-01
+Are folding cartons required on Nuvia serum SKUs sold through owned channels?,temporal,true,owned,,nuvia-packaging-policy-v2
+"Which brands buy from Korent, and on what terms?",cross_brand,true,Nuvia;Grove,,korent-quote-grove
+Which brands buy from Vermeer Cartons?,cross_brand,true,vermeer,,vermeer-cartons-quote
+Compare the unit rates Korent quotes to Nuvia and Grove.,cross_brand,true,20.75,,korent-quote-grove
+What is Korent's minimum order quantity?,contested,true,"5,000;8,000",,korent-contract-annexe
+What minimum order quantity applies to a Korent colour run?,contested,true,"5,000;8,000",,korent-spec-sheet
+Why did we discontinue the mango variant?,archaeology,true,panel,,grove-mango-decision-memo
+Why did we end the blanket sampling programme?,archaeology,true,waste,,sampling-programme
+Why did we relax the carton requirement on serum SKUs?,archaeology,true,owned,,nuvia-packaging-policy-v2
+What is our standard freight insurance excess for sea shipments?,unanswerable,false,,,
+What is the lead time from Larkspur Ceramics?,unanswerable,false,,,
+What is our policy on employee referral bonuses?,unanswerable,false,,,
+Which bank holds the Grove operating account?,unanswerable,false,,,
+What minimum shelf life do we accept on incoming fragrance concentrate?,unanswerable,false,,,
+Show me total spend by vendor last quarter.,unanswerable,false,,,
+What is our insurance excess on stock held at third-party warehouses?,unanswerable,false,,,
+What is the approval threshold for onboarding a new vendor?,unanswerable,false,,,
+Which ERP system holds our purchase orders?,unanswerable,false,,,
+What is our forecast accuracy on the Nuvia serum line?,unanswerable,false,,,
+What is the cancellation penalty on a Korent purchase order once tooling has started?,unanswerable,false,,,
+What is the SLA for responding to a wholesale enquiry?,unanswerable,false,,,

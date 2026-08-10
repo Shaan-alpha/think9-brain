@@ -18,6 +18,19 @@ _ATTRIBUTES = {
     "payment terms": re.compile(r"\bNet\s+(\d+)\b", re.IGNORECASE),
 }
 
+# What a question has to be asking about for a conflict in that attribute to matter.
+_ASKED_ABOUT = {
+    "minimum order quantity": re.compile(
+        r"\bminimum order\b|\bMOQ\b|\border quantity\b|\bhow many units\b|\bper colour run\b",
+        re.IGNORECASE,
+    ),
+    "unit price": re.compile(
+        r"\bprice\b|\bpay\b|\bcost\b|\brate\b|\bper unit\b|\bcharge\b", re.IGNORECASE
+    ),
+    "lead time": re.compile(r"\blead time\b|\bhow long\b|\bdelivery time\b", re.IGNORECASE),
+    "payment terms": re.compile(r"\bpayment term\b|\bnet \d+\b|\bterms\b", re.IGNORECASE),
+}
+
 
 @dataclass
 class ContestedFinding:
@@ -38,12 +51,20 @@ def _entity(chunk: RetrievedChunk) -> tuple[str, str]:
     return chunk.document.title.split("-")[0].lower(), chunk.document.brand_id
 
 
-def detect_contested(chunks: list[RetrievedChunk]) -> ContestedFinding | None:
+def detect_contested(question: str, chunks: list[RetrievedChunk]) -> ContestedFinding | None:
+    """A conflict only matters if the question is asking about the thing in conflict.
+
+    The Korent spec sheet and contract annexe disagree on minimum order quantity, and both
+    are retrieved for any Korent question. Without this check, "what neck finish does the
+    jar use?" is answered with "two sources disagree on MOQ" — true, and not the question.
+    """
     # A demoted source is not a competing claim, it is a former one. Only live documents
     # can contest each other.
     live = [c for c in chunks if not c.demoted]
 
     for attribute, pattern in _ATTRIBUTES.items():
+        if not _ASKED_ABOUT[attribute].search(question):
+            continue
         by_entity: dict[tuple[str, str], dict[str, str]] = {}
         for chunk in live:
             match = pattern.search(chunk.text)

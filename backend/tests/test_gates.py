@@ -20,6 +20,9 @@ ANNEXE = make_document(
 )
 OTHER_VENDOR = make_document(title="sundara-caps-spec-shared-2025-11-11.md", doc_type="spec_sheet")
 
+MOQ_Q = "What is Korent's minimum order quantity?"
+PRICE_Q = "What do we pay for 50ml amber glass?"
+
 
 def _chunk(doc, text, heading="Order constraints"):
     return RetrievedChunk(
@@ -29,10 +32,11 @@ def _chunk(doc, text, heading="Order constraints"):
 
 def test_two_live_sources_disagreeing_on_moq_are_detected():
     finding = detect_contested(
+        MOQ_Q,
         [
             _chunk(SPEC, "Minimum order quantity: 5,000 units."),
             _chunk(ANNEXE, "Minimum order quantity: 8,000 units."),
-        ]
+        ],
     )
 
     assert finding is not None
@@ -43,10 +47,11 @@ def test_two_live_sources_disagreeing_on_moq_are_detected():
 def test_agreeing_sources_are_not_contested():
     assert (
         detect_contested(
+            MOQ_Q,
             [
                 _chunk(SPEC, "Minimum order quantity: 5,000 units."),
                 _chunk(ANNEXE, "Minimum order quantity: 5,000 units."),
-            ]
+            ],
         )
         is None
     )
@@ -56,10 +61,11 @@ def test_different_vendors_disagreeing_is_not_a_conflict():
     """Every spec sheet in the corpus states an MOQ. Only the same vendor can conflict."""
     assert (
         detect_contested(
+            MOQ_Q,
             [
                 _chunk(SPEC, "Minimum order quantity: 5,000 units."),
                 _chunk(OTHER_VENDOR, "Minimum order quantity: 15,000 units."),
-            ]
+            ],
         )
         is None
     )
@@ -76,10 +82,11 @@ def test_the_same_vendor_serving_two_brands_is_not_a_conflict():
 
     assert (
         detect_contested(
+            PRICE_Q,
             [
                 _chunk(nuvia, "50ml amber glass jar: Rs 22.10 per unit.", "Pricing"),
                 _chunk(grove, "180ml amber glass vessel: Rs 20.75 per unit.", "Pricing"),
-            ]
+            ],
         )
         is None
     )
@@ -89,11 +96,27 @@ def test_a_demoted_source_does_not_create_a_conflict():
     """A superseded document is not a competing claim; it is a former one."""
     demoted = replace(_chunk(ANNEXE, "Minimum order quantity: 8,000 units."), demoted=True)
 
-    assert detect_contested([_chunk(SPEC, "Minimum order quantity: 5,000 units."), demoted]) is None
+    assert (
+        detect_contested(MOQ_Q, [_chunk(SPEC, "Minimum order quantity: 5,000 units."), demoted])
+        is None
+    )
+
+
+def test_a_conflict_the_question_is_not_about_is_ignored():
+    """The Korent spec sheet and annexe disagree on MOQ and are retrieved for any Korent
+    question. Answering "what neck finish?" with "two sources disagree on MOQ" is true and
+    is not the question."""
+    conflicting = [
+        _chunk(SPEC, "Minimum order quantity: 5,000 units."),
+        _chunk(ANNEXE, "Minimum order quantity: 8,000 units."),
+    ]
+
+    assert detect_contested("What neck finish does the Korent jar use?", conflicting) is None
+    assert detect_contested(MOQ_Q, conflicting) is not None
 
 
 def test_a_single_source_is_not_contested():
-    assert detect_contested([_chunk(SPEC, "Minimum order quantity: 5,000 units.")]) is None
+    assert detect_contested(MOQ_Q, [_chunk(SPEC, "Minimum order quantity: 5,000 units.")]) is None
 
 
 def test_a_sensitive_document_forces_evidence_framing():
