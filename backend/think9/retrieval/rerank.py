@@ -11,7 +11,10 @@ from think9.models import Candidate
 
 @lru_cache(maxsize=1)
 def _encoder() -> TextCrossEncoder:
-    return TextCrossEncoder(model_name=get_settings().reranker_model)
+    settings = get_settings()
+    return TextCrossEncoder(
+        model_name=settings.reranker_model, cache_dir=settings.fastembed_cache_dir
+    )
 
 
 def _sigmoid(logit: float) -> float:

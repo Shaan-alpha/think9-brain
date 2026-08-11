@@ -22,7 +22,10 @@ def embed_input(chunk: ParsedChunk) -> str:
 
 @lru_cache(maxsize=1)
 def _model() -> TextEmbedding:
-    return TextEmbedding(model_name=get_settings().embedding_model)
+    settings = get_settings()
+    return TextEmbedding(
+        model_name=settings.embedding_model, cache_dir=settings.fastembed_cache_dir
+    )
 
 
 class Embedder:

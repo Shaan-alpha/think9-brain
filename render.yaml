@@ -10,12 +10,20 @@ services:
     plan: starter
     region: singapore
     rootDir: backend
-    buildCommand: pip install uv && uv sync --frozen
-    startCommand: uv run uvicorn think9.api.main:app --host 0.0.0.0 --port $PORT
+    # The build downloads the ONNX weights into the image. Fetching them at request time
+    # costs memory on top of an already-resident model, and on a 512 MB instance that
+    # combination is what killed the first deploy mid-question.
+    buildCommand: pip install uv && uv sync --frozen && uv run python -m think9.warm_models
+    # One worker deliberately: each would load its own copy of both models (~300 MB).
+    startCommand: uv run uvicorn think9.api.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
+      # Inside the build's working directory, so the weights the build downloads are the
+      # ones the running process finds. A temp directory would not survive.
+      - key: FASTEMBED_CACHE_DIR
+        value: /opt/render/project/src/backend/.fastembed_cache
       # Set these in the Render dashboard; none of them belong in this file.
       - key: DATABASE_URL
         sync: false

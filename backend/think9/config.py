@@ -4,6 +4,15 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
+# Named here rather than inside Settings so the build-time model warmer can reach them
+# without needing a DATABASE_URL, which a build does not have.
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+RERANKER_MODEL = "Xenova/ms-marco-MiniLM-L-6-v2"
+
+
+def fastembed_cache_dir() -> str | None:
+    return os.environ.get("FASTEMBED_CACHE_DIR") or None
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -16,6 +25,7 @@ class Settings:
     router_model: str
     embedding_model: str
     reranker_model: str
+    fastembed_cache_dir: str | None
     coverage_tau: float
 
 
@@ -36,7 +46,11 @@ def get_settings() -> Settings:
         llm_base_url=os.environ.get("LLM_BASE_URL", "https://api.groq.com/openai/v1"),
         llm_model=os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile"),
         router_model=os.environ.get("ROUTER_MODEL", "llama-3.1-8b-instant"),
-        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        reranker_model="Xenova/ms-marco-MiniLM-L-6-v2",
+        embedding_model=EMBEDDING_MODEL,
+        reranker_model=RERANKER_MODEL,
+        # Where the ONNX weights live. Set this in a container so the build downloads
+        # them once into the image; downloading at request time costs memory on top of
+        # an already-loaded model, which is what killed the first deploy on 512 MB.
+        fastembed_cache_dir=fastembed_cache_dir(),
         coverage_tau=float(os.environ.get("COVERAGE_TAU", "0.5")),
     )

@@ -1,4 +1,5 @@
 import os
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Annotated
 
@@ -17,7 +18,21 @@ from think9.retrieval.retriever import Retriever
 from think9.store.db import connect
 from think9.store.repository import Repository
 
-app = FastAPI(title="Think9 Brain")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Load the models and open the connection before serving any request.
+
+    Doing it lazily on first request meant a container that had recycled downloaded the
+    reranker weights while the embedder was already resident, and a 512 MB box killed it
+    mid-download — which the caller saw as a 502 on a question rather than as a failed
+    deploy. Failing here instead makes a broken boot visible as a broken boot.
+    """
+    get_brain()
+    yield
+
+
+app = FastAPI(title="Think9 Brain", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),

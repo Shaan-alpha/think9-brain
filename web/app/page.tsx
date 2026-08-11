@@ -113,6 +113,17 @@ export default function Home() {
         ))}
       </div>
 
+      {pending && (
+        <p
+          className="rounded-sm border px-3 py-2 text-sm"
+          style={{ borderColor: "var(--rule)", color: "var(--muted)" }}
+        >
+          Retrieving, then checking every claim against the section it cites. The API
+          sleeps when idle on a free plan, so a first question after a quiet spell waits
+          about a minute for it to wake.
+        </p>
+      )}
+
       {error && (
         <p
           className="rounded-sm border px-3 py-2 text-sm"
