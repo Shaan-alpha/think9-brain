@@ -20,6 +20,7 @@ shipped behind a green suite.
 | 6 | **The contested gate fired on the headline question.** ₹22.10 (Nuvia 50ml) and ₹20.75 (Grove 180ml) read as a contested price — same supplier, different product, both correct | Scope conflicts by supplier **and** brand |
 | 7 | **The model fabricated a supersession.** Shown both MOQ figures it wrote "the more recent spec sheet supersedes the earlier one", which neither document states | The contested path diverts *before* synthesis, so no model gets to pick a winner |
 | 8 | **The contested gate hijacked unrelated questions.** The Korent spec sheet and annexe disagree on MOQ and are retrieved for *any* Korent question, so "what neck finish does the jar use?" was answered "two sources disagree on minimum order quantity" — true, and not the question | A conflict now has to be in the attribute the question is asking about |
+| 9 | **The contested gate reported the wrong supplier's conflict.** Asking Halden Glass's minimum order quantity returned Korent's disagreement: the Korent chunks are the corpus's most MOQ-shaped, so they surface for any MOQ question. Found on the held-out set — see the disclosure in the error analysis | A conflict now has to be about the supplier the question names, not only the attribute |
 
 ## Design changes
 
@@ -48,14 +49,29 @@ pass, and only entailment catches it. A companion test asserts the same claim pa
 `llm=None`, which is what proves the first test exercises entailment rather than a cheaper
 gate.
 
-## Open items for Tasks 19–22
+## Resolved open items
 
-- **The corpus is 163 chunks, not the 700–1,200 the spec estimated**, because the
-  documents are concise. Enough for all six behaviours to work, but a thin field of
-  distractors for the hybrid-vs-dense ablation. Decide from the Task 20 numbers whether to
-  enrich rather than padding on a guess.
-- **`scripts/smoke.py` is the fastest verification** of the three §3 behaviours and exits
-  non-zero on regression. Task 22's verification step should run it.
-- The plan's Task 16 note about restructuring the fan-out around `Send` is **not needed** —
-  both retrievers do run in one superstep, and `test_the_owner_retriever_runs_in_parallel_and_lands_in_the_trace`
-  is what proves it.
+- **The corpus is 163 chunks, not the 700–1,200 the spec estimated.** The Task 20 numbers
+  answered whether to enrich: hybrid's contribution over dense-only is real but small
+  (recall@k 0.975 → 1.000), which is what a thin field of distractors predicts. Three of
+  the five held-out failures are retrieval misses among near-duplicate documents — four
+  procurement reviews and ten structurally identical spec sheets — so the useful
+  enrichment is documents that differ in *substance*, not more of the same shape. Recorded
+  in the error analysis rather than acted on, because acting on it after the held-out run
+  would change the system the scorecard describes.
+- **The plan's Task 16 note about restructuring the fan-out around `Send` is not needed.**
+  Both retrievers run in one superstep, and
+  `test_the_owner_retriever_runs_in_parallel_and_lands_in_the_trace` proves it.
+- **`scripts/smoke.py` is in the verification loop**, not a debugging aid. It exits
+  non-zero on regression and is the check that caught what the suite could not.
+
+## Still open
+
+- **Deployment to Render and Vercel** needs account access. `render.yaml` and the CI
+  workflow are written and committed; the two account steps are not done.
+- **The held-out set is spent for this version of the system.** A fix was found by reading
+  its failures, so re-running it would no longer be a held-out measurement. A next
+  iteration needs fresh questions.
+- **Three of four §7.4 targets were missed** — groundedness, refusal precision, as-of
+  correctness. Reported as they came out; see `evalkit/error_analysis.md` for the per-failure
+  account and what would actually move them.

@@ -94,13 +94,46 @@ A system like this must be judged on numbers, not demos:
 
 ## 3. Proof of Concept
 
-The prototype demonstrates the three behaviours that separate a deployable system from a demo:
+The prototype is built and measured. It runs the full pipeline described above — hybrid retrieval, the temporal authority layer, a LangGraph agent with a separate verifier stage — over a 64-document synthetic corpus spanning two brands and two functions, held in Postgres with pgvector.
 
-1. **A cited answer** — a factual operational question answered with the exact source section quoted and linked.
-2. **A refusal** — a question the corpus cannot support, where the system declines, names the closest available evidence, and identifies the owner to ask. *This is the important one.*
-3. **A cross-brand synthesis** — a question requiring retrieval across two brands and a comparison, showing the answer is composed rather than looked up.
+It demonstrates the three behaviours that separate a deployable system from a demo:
 
-This is built on retrieval machinery I have already implemented and evaluated: a grounded RAG assistant that cites its exact source section and refuses when retrieved context cannot support an answer, scored on a held-out question set at **18 of 20 correct with retrieval recall@k of 1.000**, backed by 83 tests. The Think9 prototype adapts that core, adding the hybrid retrieval, the temporal authority layer, and the verifier stage described above.
+1. **A cited answer.** *"What do we pay for 50ml amber glass?"* returns Rs 22.10, as of 2026-01-08, cited to the exact section of the January 2026 quote. The March 2024 quote at Rs 18.40 is retrieved, recognised as superseded, and held back.
+2. **A refusal.** *"What is our standard freight insurance excess?"* is declined, with the nearest available evidence named and the question routed to the function owner. *This is the important one.*
+3. **A cross-brand synthesis.** *"Which brands buy from Korent, and on what terms?"* is composed from two brands' quotes, each cited.
+
+Two behaviours beyond the original three earned their place. Where two current sources disagree and neither supersedes the other, the system surfaces both and names the arbiter rather than choosing — and the reason that gate diverts *before* synthesis is that when the model was shown both figures it wrote *"the more recent spec sheet supersedes the earlier one"*, a supersession neither document states. The verifier caught it. That is §1's failure mode, caught by §2.5's mechanism, on a fact the corpus was built to bait.
+
+### 3.1 What the numbers say
+
+A 60-question development set fitted the coverage threshold; a 42-question held-out set was then run **once**, with tuning frozen.
+
+| Metric | Held-out result |
+|---|---|
+| Accuracy | 0.881 |
+| **Refusal recall** | **1.000** |
+| Refusal precision | 0.800 |
+| Recall@k | 0.867 |
+| Groundedness (drafted claims surviving verification) | 0.849 |
+
+**Across 32 unanswerable questions the system never once produced an answer.** Every error it made was over-caution or a retrieval miss; none was invention. Given that §1 rests on a confidently wrong answer costing more than no answer, that is the trade it does not make.
+
+Three targets set before building were missed — groundedness, refusal precision, and as-of correctness — and the [error analysis](evalkit/error_analysis.md) accounts for each. The as-of miss deserves one line here because the number reads worse than the behaviour: the failing question was *refused*, not answered from stale evidence. No temporal question quoted a superseded value.
+
+### 3.2 What the ablations prove
+
+Each configuration toggles a real code path rather than a reimplementation.
+
+| Configuration | recall@k | superseded doc in model's context | coverage separation |
+|---|---|---|---|
+| dense-only | 0.975 | 0.000 | 0.224 |
+| hybrid | 0.975 | 0.000 | 0.002 |
+| hybrid + rerank | **1.000** | 0.000 | **0.785** |
+| temporal layer off | 1.000 | **1.000** | 0.780 |
+
+Two results are more specific than §2 predicted. **The cross-encoder, not hybrid search, is what makes refusal possible**: the gap between mean coverage on answerable and unanswerable questions is 0.785 with reranking and 0.002 without, because reciprocal rank fusion assigns near-identical scores to everything — ordering without confidence. And **the temporal layer's contribution is exclusion rather than reordering**: the reranker already ranks the current quote first, but with the layer off the dead price sits in the model's context on every temporal question, one sentence from being quoted.
+
+This builds on retrieval machinery I had already implemented and evaluated — a grounded RAG assistant scoring 18 of 20 on a held-out set with recall@k of 1.000. Its error analysis identified the gap this system closes: deterministic checks can verify that a figure *appears* in the retrieved text, but not that it has been *combined* correctly. The verifier's entailment stage is that missing check, and a test in this repository proves the case, using a claim whose every number is real, whose citation resolves, and which is still false.
 
 ---
 
