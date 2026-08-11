@@ -7,8 +7,14 @@ that answer is good as of, and declines when the corpus cannot support an answer
 Companion to [`Think9_Brain_Proposal.md`](Think9_Brain_Proposal.md), which argues the
 architecture. This is the runnable subset that tests it.
 
-**Live API:** <https://think9-brain-api.onrender.com> — `/health` for status, `POST /ask`
-to query, `GET /digest` for the questions it could not answer.
+### ▶ Try it: **<https://think9-brain.vercel.app>**
+
+Six one-click questions cover every behaviour below. Each answer opens its working — what
+each retrieval arm found, what the temporal layer held back, and what the verifier struck
+out with the reason.
+
+**API:** <https://think9-brain-api.onrender.com> — `/health` for status, `POST /ask` to
+query, `GET /digest` for the questions it could not answer.
 
 ```bash
 curl -s https://think9-brain-api.onrender.com/ask \

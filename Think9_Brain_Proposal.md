@@ -94,6 +94,8 @@ A system like this must be judged on numbers, not demos:
 
 ## 3. Proof of Concept
 
+**Live at <https://think9-brain.vercel.app>.** Six one-click questions cover the behaviours below, and every answer opens the working behind it. The first request may take a minute — the API sleeps on a free tier.
+
 The prototype is built and measured. It runs the full pipeline described above — hybrid retrieval, the temporal authority layer, a LangGraph agent with a separate verifier stage — over a 64-document synthetic corpus spanning two brands and two functions, held in Postgres with pgvector.
 
 It demonstrates the three behaviours that separate a deployable system from a demo:
