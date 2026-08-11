@@ -1,12 +1,15 @@
 from datetime import date
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from tests.conftest import make_document
 from think9.agent.verifier import verify
 from think9.models import RetrievedChunk
 
-CHUNK_ID = uuid4()
-GROVE_CHUNK_ID = uuid4()
+# Fixed rather than uuid4(): this module asserts on numbers appearing in text that still
+# carries [c:<uuid>] markers, and a random id containing those digits makes the assertion
+# flaky. Deterministic ids also make a failure reproducible.
+CHUNK_ID = UUID("aaaaaaaa-0000-4000-8000-00000000000a")
+GROVE_CHUNK_ID = UUID("bbbbbbbb-0000-4000-8000-00000000000b")
 DOC = make_document(effective_date=date(2026, 1, 8))
 GROVE_DOC = make_document(title="Korent Quote — Grove", brand_id="grove")
 CHUNKS = [
@@ -125,8 +128,11 @@ def test_a_partially_grounded_draft_keeps_only_the_supported_claims():
 
     assert result.refused is False
     assert "22.10" in result.text
-    assert "91" not in result.text
+    # Assert on the claim's words, not on "91". Retained claims keep their [c:<uuid>]
+    # marker, and a random uuid4 containing those two digits made this flaky in CI.
+    assert "Lead time" not in result.text
     assert len(result.stripped) == 1
+    assert "Lead time is 91 days" in result.stripped[0]
 
 
 def test_an_entailment_outage_is_treated_as_unsupported():
