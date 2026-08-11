@@ -20,3 +20,8 @@ out/
 
 # Generated corpus (regenerate with `python corpus/generate.py`)
 corpus/out/
+
+# Next.js
+web/.next/
+web/out/
+web/next-env.d.ts

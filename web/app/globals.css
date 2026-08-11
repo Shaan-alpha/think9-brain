@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+  Palette taken from the corpus's own headline artifact: a 50ml amber glass jar on a
+  cool paper ground. Amber marks authority — the current fact, the as-of date. Nothing
+  else is allowed to use it.
+
+  Refusal is deliberately not red. In this product a refusal is a correct outcome, and
+  colouring it like an error would argue against the thing the system is for.
+*/
+:root {
+  --paper: #eceef0;
+  --card: #f7f8f9;
+  --ink: #14171a;
+  --muted: #5b656e;
+  --rule: #ccd2d7;
+  --amber: #a9670c;
+  --amber-wash: #f5ead9;
+  --slate: #43596b;
+  --slate-wash: #e3eaef;
+  --stale: #949aa1;
+  --contest: #7a3f1d;
+
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, monospace;
+  --sans: ui-sans-serif, system-ui, "Segoe UI", Inter, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #101315;
+    --card: #171b1e;
+    --ink: #e8ecef;
+    --muted: #9aa4ac;
+    --rule: #2c3338;
+    --amber: #e0a45c;
+    --amber-wash: #2a2016;
+    --slate: #9dbdd4;
+    --slate-wash: #1a2229;
+    --stale: #6b737a;
+    --contest: #d99a6c;
+  }
+}
+
+html {
+  background: var(--paper);
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Evidence voice: anything traceable to a source is set in mono. */
+.ev {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rule {
+  border-color: var(--rule);
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.stage {
+  animation: rise 260ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    animation: none;
+  }
+}

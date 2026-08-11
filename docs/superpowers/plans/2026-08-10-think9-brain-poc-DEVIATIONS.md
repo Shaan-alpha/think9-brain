@@ -19,6 +19,7 @@ shipped behind a green suite.
 | 5 | **CRLF broke ingestion entirely.** The generator wrote Windows line endings; every regex anchors on `\n`, so all 64 documents failed provenance validation. The parse tests passed because they used `split("---")` | Normalise line endings at decode; generator writes LF; regression test covers a CRLF document |
 | 6 | **The contested gate fired on the headline question.** ₹22.10 (Nuvia 50ml) and ₹20.75 (Grove 180ml) read as a contested price — same supplier, different product, both correct | Scope conflicts by supplier **and** brand |
 | 7 | **The model fabricated a supersession.** Shown both MOQ figures it wrote "the more recent spec sheet supersedes the earlier one", which neither document states | The contested path diverts *before* synthesis, so no model gets to pick a winner |
+| 8 | **The contested gate hijacked unrelated questions.** The Korent spec sheet and annexe disagree on MOQ and are retrieved for *any* Korent question, so "what neck finish does the jar use?" was answered "two sources disagree on minimum order quantity" — true, and not the question | A conflict now has to be in the attribute the question is asking about |
 
 ## Design changes
 
@@ -32,6 +33,10 @@ shipped behind a green suite.
 | Test connection is session-scoped, truncated per test | Reconnecting per test cost 105s against Neon versus 40s |
 | Ruff configured at the repo root, `docs/` excluded | `corpus/` and `eval/` sit outside `backend/`, so a config inside it was never consulted for them — and ruff was reformatting the Python blocks inside this plan document |
 | Python pinned to 3.12 via `backend/.python-version` | uv resolved to 3.14 by default |
+| Eval package named `evalkit`, not `eval` | A top-level package called `eval` shadows the builtin |
+| The τ sweep measures retrieval coverage once per question and scores every threshold against those numbers | τ is the refusal threshold, and the refusal decision depends on coverage alone — which is deterministic and needs no model. Re-running the full pipeline per threshold was several hundred model calls to learn the same thing |
+| Threshold selection takes the smallest τ within 0.01 F1 of the best, not the raw argmax | On sixty questions that difference is noise, and the argmax (0.70) refused two answerable questions where 0.55 scored the same and refused one. Refusing a question the corpus can answer is the failure this tool exists to avoid |
+| Ablations measure at the retrieval layer with no model | The claims under test are retrieval claims: hybrid-vs-dense is answered by recall@k, and the temporal layer by which document leads the ranking. Routing those through a synthesiser adds cost and variance without adding evidence |
 
 ## Verifier test corrected
 
