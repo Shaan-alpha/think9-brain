@@ -25,3 +25,8 @@ corpus/out/
 web/.next/
 web/out/
 web/next-env.d.ts
+.render-service-id
+
+# Tracked deliberately: the production API address is public, not a secret,
+# and the build needs it present.
+!web/.env.production

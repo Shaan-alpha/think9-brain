@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Tracked deliberately: the production API address is public, not a secret,
+# and the production build needs it present.
+!.env.production

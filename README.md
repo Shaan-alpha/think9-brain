@@ -7,6 +7,19 @@ that answer is good as of, and declines when the corpus cannot support an answer
 Companion to [`Think9_Brain_Proposal.md`](Think9_Brain_Proposal.md), which argues the
 architecture. This is the runnable subset that tests it.
 
+**Live API:** <https://think9-brain-api.onrender.com> — `/health` for status, `POST /ask`
+to query, `GET /digest` for the questions it could not answer.
+
+```bash
+curl -s https://think9-brain-api.onrender.com/ask \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"What do we pay for 50ml amber glass?","user_groups":["procurement"]}'
+```
+
+Hosted on Render's free tier, which sleeps after 15 minutes idle. The first request after
+a sleep waits for the container and the ONNX weights to load — around a minute. Every
+request after that is warm.
+
 > **The corpus is synthetic.** Brands, vendors, people, prices and documents are invented
 > for this prototype. No real Think9 data appears anywhere in it. The generator is
 > [`corpus/generate.py`](corpus/generate.py); see [`corpus/README.md`](corpus/README.md).
