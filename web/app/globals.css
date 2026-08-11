@@ -21,8 +21,11 @@
   --stale: #949aa1;
   --contest: #7a3f1d;
 
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono", Menlo, monospace;
-  --sans: ui-sans-serif, system-ui, "Segoe UI", Inter, sans-serif;
+  /* Geist Mono carries the evidence voice — every citation, date, score and document
+     name is set in it, so the proportion of the screen backed by a source is legible at
+     a glance. Loaded in layout.tsx; the fallbacks cover a failed font fetch. */
+  --mono: var(--font-geist-mono), ui-monospace, "Cascadia Mono", Menlo, monospace;
+  --sans: var(--font-geist-sans), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
