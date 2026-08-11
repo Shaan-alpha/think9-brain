@@ -115,6 +115,27 @@ def test_a_conflict_the_question_is_not_about_is_ignored():
     assert detect_contested(MOQ_Q, conflicting) is not None
 
 
+def test_another_suppliers_conflict_is_not_reported():
+    """Found on the held-out set: asking Halden Glass's MOQ returned Korent's conflict.
+
+    The Korent spec sheet and annexe are the corpus's most MOQ-shaped chunks, so they are
+    retrieved for any MOQ question. Their disagreement is genuine and is a true statement
+    about the wrong supplier.
+    """
+    halden = make_document(title="halden-glass-spec-shared-2025-11-11.md", brand_id="shared")
+    korent_conflict = [
+        _chunk(SPEC, "Minimum order quantity: 5,000 units."),
+        _chunk(ANNEXE, "Minimum order quantity: 8,000 units."),
+        _chunk(halden, "Minimum order quantity: 6,000 units."),
+    ]
+
+    assert (
+        detect_contested("What is the minimum order quantity for Halden Glass?", korent_conflict)
+        is None
+    )
+    assert detect_contested(MOQ_Q, korent_conflict) is not None
+
+
 def test_a_single_source_is_not_contested():
     assert detect_contested(MOQ_Q, [_chunk(SPEC, "Minimum order quantity: 5,000 units.")]) is None
 

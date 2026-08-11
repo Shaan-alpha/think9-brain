@@ -62,6 +62,8 @@ def detect_contested(question: str, chunks: list[RetrievedChunk]) -> ContestedFi
     # can contest each other.
     live = [c for c in chunks if not c.demoted]
 
+    asked = question.lower()
+
     for attribute, pattern in _ATTRIBUTES.items():
         if not _ASKED_ABOUT[attribute].search(question):
             continue
@@ -73,7 +75,14 @@ def detect_contested(question: str, chunks: list[RetrievedChunk]) -> ContestedFi
             by_entity.setdefault(_entity(chunk), {}).setdefault(
                 match.group(1), chunk.document.title
             )
-        for values in by_entity.values():
+        for (supplier, _brand), values in by_entity.items():
+            # The conflict must be about the supplier the question names. Asking for
+            # Halden Glass's minimum order quantity retrieves the Korent spec sheet and
+            # annexe too — they are the corpus's most MOQ-shaped chunks — and reporting
+            # Korent's genuine disagreement in answer to a question about Halden is a
+            # true statement about the wrong supplier.
+            if supplier not in asked:
+                continue
             if len(values) > 1:
                 return ContestedFinding(
                     attribute=attribute,
