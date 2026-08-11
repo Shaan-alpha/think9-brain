@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --extra dev --frozen
+        working-directory: backend
+      - run: uv run ruff check ..
+        working-directory: backend
+      - run: uv run ruff format --check ..
+        working-directory: backend
+      # Tests needing Postgres skip when TEST_DATABASE_URL is unset, so the suite runs on
+      # a fork without secrets. Set the secret to exercise them.
+      - run: uv run pytest -q
+        working-directory: backend
+        env:
+          TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+
+  corpus:
+    # The refusal demo is worthless if the corpus quietly answers the question, so the
+    # seeded gap is guarded on every push rather than trusted to stay a gap.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --extra dev --frozen
+        working-directory: backend
+      - run: uv run pytest tests/test_corpus_generate.py tests/test_corpus_seeds.py -q
+        working-directory: backend

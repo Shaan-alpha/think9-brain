@@ -1,0 +1,40 @@
+# Render Blueprint for the Think9 Brain backend.
+#
+# Not Vercel: the embedding and cross-encoder weights load once at startup and stay in
+# memory. A serverless function would pay that cost on every cold start, and the ONNX
+# runtime pushes the bundle past comfortable limits.
+services:
+  - type: web
+    name: think9-brain-api
+    runtime: python
+    plan: starter
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn think9.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      # Set these in the Render dashboard; none of them belong in this file.
+      - key: DATABASE_URL
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: ROUTER_MODEL
+        value: llama-3.1-8b-instant
+      # Fitted on the dev question set. See evalkit/scorecard_dev.md.
+      - key: COVERAGE_TAU
+        value: "0.55"
+      # Leave GOOGLE_CREDENTIALS_JSON unset to ingest from the local corpus mirror.
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
+      - key: DRIVE_FOLDER_ID
+        sync: false
+      # The deployed frontend origin, so the browser can call this service.
+      - key: CORS_ORIGINS
+        sync: false
