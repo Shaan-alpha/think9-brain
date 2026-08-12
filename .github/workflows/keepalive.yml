@@ -1,0 +1,27 @@
+name: Keep the API awake
+
+# Render's free plan spins a service down after 15 minutes without inbound traffic, and
+# waking it takes about a minute — during which the browser's fetch fails outright rather
+# than waiting. A reviewer opening the demo cold sees an error, not a slow answer.
+#
+# This pings /health often enough that the service never sleeps. It is the free fix; the
+# paid one is upgrading the Render plan, which removes the sleep entirely.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the health endpoint
+        run: |
+          # --max-time 180 because a ping that arrives after a sleep pays the wake cost
+          # itself, which is the point: this request absorbs it so a visitor does not.
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 180 \
+            https://think9-brain-api.onrender.com/health)
+          echo "health returned $code"
+          # A failed ping must not fail the workflow into a red badge on the repo; the
+          # next run in ten minutes is the retry.
+          test "$code" = "200" || echo "::warning::health returned $code"

@@ -6,37 +6,60 @@ const BACKEND =
 /** Every group, so the demo shows behaviour rather than access control. */
 export const DEMO_GROUPS = ["procurement", "brand_ops", "legal"];
 
+const WAKE_ATTEMPTS = 4;
+const WAKE_BACKOFF_MS = 6000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function post(question: string): Promise<Response> {
+  return fetch(`${BACKEND}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, user_groups: DEMO_GROUPS, user_id: "web" }),
+  });
+}
+
+/**
+ * Ask a question, absorbing a cold start rather than reporting it as a failure.
+ *
+ * On a free plan the API sleeps after fifteen minutes and takes about a minute to wake.
+ * While it wakes, the connection is refused or answered with a 502 — so a single attempt
+ * surfaces a waking service as a broken one. Retrying is the difference between a visitor
+ * seeing a slow answer and seeing an error.
+ */
 export async function ask(question: string): Promise<AskResponse> {
-  let response: Response;
-  try {
-    response = await fetch(`${BACKEND}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question,
-        user_groups: DEMO_GROUPS,
-        user_id: "web",
-      }),
-    });
-  } catch {
-    // fetch only rejects on a network-level failure, where the browser gives us no
-    // detail. "Failed to fetch" on its own tells a reader nothing about what to do.
-    throw new Error(
-      "Could not reach the API. It sleeps when idle on a free plan — wait a few seconds " +
-        "and ask again. If it keeps failing, the service is down rather than asleep.",
-    );
+  let lastReason = "";
+
+  for (let attempt = 0; attempt < WAKE_ATTEMPTS; attempt++) {
+    let response: Response;
+    try {
+      response = await post(question);
+    } catch {
+      // fetch rejects on a network-level failure with no detail available to us.
+      lastReason = "the connection was refused";
+      await sleep(WAKE_BACKOFF_MS);
+      continue;
+    }
+
+    // 422 is the caller's fault and will not improve with a retry.
+    if (response.status === 422) throw new Error("Enter a question first.");
+
+    if (response.status === 502 || response.status === 503) {
+      lastReason = `the service returned ${response.status}`;
+      await sleep(WAKE_BACKOFF_MS);
+      continue;
+    }
+
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`The API returned ${response.status}. ${detail.slice(0, 160)}`);
+    }
+    return response.json();
   }
 
-  if (response.status === 422) throw new Error("Enter a question first.");
-  if (response.status === 502 || response.status === 503) {
-    throw new Error(
-      "The API is starting up. It loads two models into memory on boot, which takes " +
-        "about a minute from cold. Ask again shortly.",
-    );
-  }
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(`The API returned ${response.status}. ${detail.slice(0, 160)}`);
-  }
-  return response.json();
+  throw new Error(
+    `Could not reach the API after ${WAKE_ATTEMPTS} attempts — ${lastReason}. It sleeps ` +
+      "when idle on a free plan and takes about a minute to wake, so one more try often " +
+      "succeeds. If it keeps failing, the service is down rather than asleep.",
+  );
 }
