@@ -34,6 +34,11 @@ every open connection — so the API borrows a connection per request from a poo
 checks it first, rather than holding one for the life of the process. `/health` cannot see
 that failure, which is what `/ready` is for.
 
+Questions are answered one at a time. With both ONNX models resident the instance sits at
+97–99% of its 512 MB ceiling, so two reranks peaking together get the container killed and
+cost the visitor a cold restart on top of the answer. A second question asked from the
+browser cancels the first rather than competing with it.
+
 > **The corpus is synthetic.** Brands, vendors, people, prices and documents are invented
 > for this prototype. No real Think9 data appears anywhere in it. The generator is
 > [`corpus/generate.py`](corpus/generate.py); see [`corpus/README.md`](corpus/README.md).

@@ -1,10 +1,15 @@
+import threading
+import time
+from contextlib import contextmanager
 from datetime import date
 from uuid import uuid4
 
 import psycopg
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from think9.api import main
 from think9.api.main import app, get_brain
 from think9.models import Answer, Citation
 
@@ -104,3 +109,64 @@ def test_ask_passes_the_callers_groups_through_unchanged():
 def test_digest_lists_the_documentation_backlog():
     body = client().get("/digest").json()
     assert body["gaps"][0]["question"] == "freight insurance excess"
+
+
+class _FakePool:
+    @contextmanager
+    def connection(self):
+        yield object()
+
+
+def _brain_with_stubbed_collaborators(permits: int = main.MAX_CONCURRENT_ASKS):
+    """A Brain without the ONNX models, which are the whole reason the limit exists."""
+    brain = object.__new__(main.Brain)
+    brain.pool = _FakePool()
+    brain._gate = threading.BoundedSemaphore(permits)
+    brain._embedder = brain._reranker = brain._llm = None
+    return brain
+
+
+def test_two_questions_never_go_through_the_models_at_once(monkeypatch):
+    """The instance runs at 97-99% of its 512 MB ceiling with both models resident.
+
+    Two reranks peaking together exceeds what is left, and the kernel kills the container:
+    the visitor gets a 502 and then waits out a cold restart. Queueing is the cheaper loss.
+    """
+    live = 0
+    peak = 0
+    lock = threading.Lock()
+
+    def fake_graph_ask(*_args, **_kwargs):
+        nonlocal live, peak
+        with lock:
+            live += 1
+            peak = max(peak, live)
+        time.sleep(0.05)
+        with lock:
+            live -= 1
+        return Answer(text="t", outcome="answered", citations=(), as_of=None, trace={})
+
+    monkeypatch.setattr(main, "build_graph", lambda *a, **k: object())
+    monkeypatch.setattr(main, "graph_ask", fake_graph_ask)
+    monkeypatch.setattr(main.Brain, "_log", staticmethod(lambda *a, **k: None))
+
+    brain = _brain_with_stubbed_collaborators()
+    threads = [threading.Thread(target=brain.ask, args=("q", [], "u")) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert peak == 1
+
+
+def test_a_question_that_waits_too_long_is_told_to_retry(monkeypatch):
+    """A 503 the client already retries beats a socket held open behind an invisible queue."""
+    monkeypatch.setattr(main, "ASK_QUEUE_TIMEOUT_SECONDS", 0.05)
+    brain = _brain_with_stubbed_collaborators()
+    brain._gate.acquire()  # someone else is mid-answer and will be for a while
+
+    with pytest.raises(HTTPException) as raised:
+        brain.ask("q", [], "u")
+
+    assert raised.value.status_code == 503

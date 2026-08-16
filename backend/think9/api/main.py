@@ -1,9 +1,10 @@
 import os
+import threading
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
 
@@ -55,6 +56,25 @@ class AskRequest(BaseModel):
         return value.strip()
 
 
+# One question through the models at a time.
+#
+# Measured on the running instance: it sits at 97–99% of its 512 MB ceiling once the two
+# ONNX models are resident, so the headroom for a request is tens of megabytes, not
+# hundreds. Three questions reranking at once exceeds that and the kernel kills the
+# container — which Render reports as a 502 and a cold restart, so the visitor loses the
+# answer and the next minute as well.
+#
+# This was previously enforced by accident: every request shared one connection, so they
+# queued behind its lock. Giving each request its own connection removed that brake, which
+# is why the limit now has to be stated rather than inherited. Queueing is the right
+# trade — a slow answer beats a dead container.
+MAX_CONCURRENT_ASKS = 1
+
+# Past this, the caller is better served by a 503 it can retry than by a socket held open
+# behind a queue it cannot see. Comfortably longer than the ~25 s a warm answer takes.
+ASK_QUEUE_TIMEOUT_SECONDS = 90.0
+
+
 class Brain:
     """Holds the loaded ONNX models, and a pool to borrow a connection from per request.
 
@@ -67,21 +87,35 @@ class Brain:
     questions from sharing one connection and therefore one transaction.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, max_concurrent_asks: int = MAX_CONCURRENT_ASKS) -> None:
         settings = get_settings()
-        self.pool = make_pool(settings.database_url)
+        # Two rather than one: an ask holds a connection for its whole run, and /ready has
+        # to be able to answer while that is happening. More would only buy concurrency the
+        # memory ceiling does not allow anyway.
+        self.pool = make_pool(settings.database_url, max_size=2)
+        self._gate = threading.BoundedSemaphore(max_concurrent_asks)
         self._embedder = Embedder()
         self._reranker = Reranker()
         self._llm = LLM()
 
     def ask(self, question: str, user_groups: list[str], user_id: str):
-        with self.pool.connection() as conn:
-            repo = Repository(conn)
-            # Compiling the graph costs about 5 ms against a request that takes seconds,
-            # which is a price worth paying to keep the connection request-scoped.
-            graph = build_graph(Retriever(conn, self._embedder, self._reranker), repo, self._llm)
-            answer = graph_ask(graph, question, user_groups, user_id)
-            self._log(repo, question, user_id, answer)
+        if not self._gate.acquire(timeout=ASK_QUEUE_TIMEOUT_SECONDS):
+            raise HTTPException(
+                status_code=503,
+                detail="Another question is still being answered. Try again in a moment.",
+            )
+        try:
+            with self.pool.connection() as conn:
+                repo = Repository(conn)
+                # Compiling the graph costs about 5 ms against a request that takes
+                # seconds, a price worth paying to keep the connection request-scoped.
+                graph = build_graph(
+                    Retriever(conn, self._embedder, self._reranker), repo, self._llm
+                )
+                answer = graph_ask(graph, question, user_groups, user_id)
+                self._log(repo, question, user_id, answer)
+        finally:
+            self._gate.release()
         return answer
 
     def digest(self, limit: int = 20):
