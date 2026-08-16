@@ -1,14 +1,28 @@
 name: Keep the API awake
 
 # Render's free plan spins a service down after 15 minutes without inbound traffic, and
-# waking it takes about a minute — during which the browser's fetch fails outright rather
-# than waiting. A reviewer opening the demo cold sees an error, not a slow answer.
+# waking it takes about a minute. This pings /health so a visitor arriving during the day
+# gets a slow answer rather than a cold one.
 #
-# This pings /health often enough that the service never sleeps. It is the free fix; the
-# paid one is upgrading the Render plan, which removes the sleep entirely.
+# Two things bound how hard this can try.
+#
+# **GitHub does not honour the schedule.** At `*/10` the observed gaps between runs were
+# 14 to 33 minutes — 18 of 19 of them longer than the 15-minute sleep window, and 14 of 20
+# runs took over 30 seconds, meaning they were paying the wake cost rather than preventing
+# it. Scheduled workflows are queued, not guaranteed. `*/5` does not fix that; it just
+# takes more shots, so the gaps that land under 15 minutes become the common case instead
+# of the rare one. Cold starts get rarer here, they do not go away. The thing that removes
+# them is Render's Starter plan, which does not sleep.
+#
+# **The free hours are shared.** 750 instance hours a month cover the *workspace*, and
+# this one runs four free services. A service held awake round the clock burns about 730
+# of those on its own and starves the other three. Hence the window: 04:00–15:59 UTC is
+# 09:30–21:30 in IST, which is when someone is plausibly looking, and costs roughly 365
+# hours a month rather than 730. Widen or narrow the hour range to trade cold starts
+# against everything else in the workspace.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 4-15 * * *"
   workflow_dispatch:
 
 jobs:
@@ -23,5 +37,5 @@ jobs:
             https://think9-brain-api.onrender.com/health)
           echo "health returned $code"
           # A failed ping must not fail the workflow into a red badge on the repo; the
-          # next run in ten minutes is the retry.
+          # next run is the retry.
           test "$code" = "200" || echo "::warning::health returned $code"

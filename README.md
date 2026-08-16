@@ -25,9 +25,11 @@ curl -s https://think9-brain-api.onrender.com/ask \
 
 Hosted on Render's free tier, which sleeps after 15 minutes idle. The first request after
 a sleep waits for the container and the ONNX weights to load — around a minute. Every
-request after that is warm, and a warm answer takes roughly half a minute: the free
-instance gets a fraction of a CPU, and three model calls and a dozen queries to a database
-in another region all have to happen before anything is returned.
+request after that is warm, and a warm answer takes roughly twenty seconds: the free
+instance gets a fraction of a CPU, and three model calls and five queries to a database in
+another region all have to happen before anything is returned. A scheduled ping keeps the
+service awake through the working day — not around the clock, because those free instance
+hours are shared with every other free service in the same workspace.
 
 The database sleeps too — Neon suspends its compute after a few idle minutes and drops
 every open connection — so the API borrows a connection per request from a pool that

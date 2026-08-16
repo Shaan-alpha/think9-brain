@@ -1,4 +1,5 @@
 import json
+from collections.abc import Sequence
 from datetime import date
 from uuid import UUID, uuid4
 
@@ -54,6 +55,22 @@ class Repository:
             f"SELECT {_DOC_COLUMNS} FROM documents WHERE id = %s", (doc_id,)
         ).fetchone()
         return _row_to_document(row) if row else None
+
+    def get_documents(self, doc_ids: Sequence[UUID]) -> dict[UUID, Document]:
+        """Every requested document in one round trip, keyed by id.
+
+        Retrieval enriches a shortlist of eight chunks per question. Fetching their
+        documents one at a time was eight sequential round trips, and the deployed API
+        talks to a database on the other side of the Pacific — so that was seconds of
+        latency spent before any model had run. Ids with no row are simply absent, which
+        is how a chunk whose document has since been deleted drops out.
+        """
+        if not doc_ids:
+            return {}
+        rows = self.conn.execute(
+            f"SELECT {_DOC_COLUMNS} FROM documents WHERE id = ANY(%s)", (list(doc_ids),)
+        ).fetchall()
+        return {document.id: document for document in map(_row_to_document, rows)}
 
     def insert_chunks(
         self, document_id: UUID, chunks: list[ParsedChunk], embeddings: list[list[float]]

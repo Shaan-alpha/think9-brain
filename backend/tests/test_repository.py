@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import uuid4
 
 import pytest
 
@@ -29,6 +30,40 @@ def test_upsert_is_idempotent_on_source_id(conn):
 
     assert repo.get_document(doc.id).title == "Second"
     assert conn.execute("SELECT count(*) FROM documents").fetchone()[0] == 1
+
+
+def test_get_documents_returns_every_match_keyed_by_id(conn):
+    """One round trip for the whole shortlist.
+
+    Enriching a shortlist one document at a time was eight sequential round trips per
+    question to a database in another region, which is seconds of latency before a model
+    has done anything.
+    """
+    repo = Repository(conn)
+    docs = [make_document(source_id=f"file-{i}", title=f"Doc {i}") for i in range(3)]
+    for doc in docs:
+        repo.upsert_document(doc)
+
+    found = repo.get_documents([d.id for d in docs])
+
+    assert set(found) == {d.id for d in docs}
+    assert sorted(d.title for d in found.values()) == ["Doc 0", "Doc 1", "Doc 2"]
+
+
+def test_get_documents_omits_ids_that_are_not_there(conn):
+    """A chunk whose document has been deleted must drop out, not raise."""
+    repo = Repository(conn)
+    doc = make_document()
+    repo.upsert_document(doc)
+
+    found = repo.get_documents([doc.id, uuid4()])
+
+    assert list(found) == [doc.id]
+
+
+def test_get_documents_asks_nothing_when_given_nothing(conn):
+    """A refusal retrieves no chunks, and `WHERE id = ANY('{}')` is a wasted round trip."""
+    assert Repository(conn).get_documents([]) == {}
 
 
 def test_insert_chunks_stores_embeddings_and_generates_tsv(conn):

@@ -47,7 +47,7 @@ class Retriever:
             else fused[:SHORTLIST]
         )
 
-        enriched = [c for c in (self._enrich(c) for c in shortlist) if c is not None]
+        enriched = self._enrich(shortlist)
         judged = apply_temporal_authority(enriched, route) if use_temporal else enriched
 
         trace = {
@@ -74,17 +74,25 @@ class Retriever:
             trace=trace,
         )
 
-    def _enrich(self, candidate: Candidate) -> RetrievedChunk | None:
-        document = self.repo.get_document(candidate.document_id)
-        if document is None:
-            return None
-        return RetrievedChunk(
-            chunk_id=candidate.chunk_id,
-            document=document,
-            heading_path=candidate.heading_path,
-            text=candidate.text,
-            score=candidate.score,
-        )
+    def _enrich(self, candidates: list[Candidate]) -> list[RetrievedChunk]:
+        """Attach each candidate's document, in one query for the whole shortlist.
+
+        Taking the shortlist rather than a single candidate is the point: one round trip
+        instead of one per chunk. A candidate whose document has gone is dropped, which is
+        what the per-chunk version did by returning None.
+        """
+        documents = self.repo.get_documents([c.document_id for c in candidates])
+        return [
+            RetrievedChunk(
+                chunk_id=c.chunk_id,
+                document=documents[c.document_id],
+                heading_path=c.heading_path,
+                text=c.text,
+                score=c.score,
+            )
+            for c in candidates
+            if c.document_id in documents
+        ]
 
 
 def _renumber(candidates: list[Candidate]) -> list[Candidate]:

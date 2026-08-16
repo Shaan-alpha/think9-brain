@@ -39,6 +39,48 @@ def test_retrieval_returns_chunks_with_coverage_and_an_as_of_date(conn, embedder
     assert result.as_of == date(2026, 1, 5)
 
 
+def test_enrichment_takes_one_query_for_the_whole_shortlist(conn, embedder, reranker, monkeypatch):
+    """Guards against the N+1 returning.
+
+    Enrichment used to fetch one document per shortlisted chunk — up to eight sequential
+    round trips per question, to a database the deployed API reaches across the Pacific.
+    Nothing on the retrieval path may fetch documents singly any more.
+    """
+    for i in range(4):
+        _seed(
+            conn,
+            embedder,
+            make_document(source_id=f"file-{i}", title=f"Quote {i}"),
+            f"50ml amber glass is Rs 22.1{i} per unit",
+        )
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("retrieval must not fetch documents one at a time")
+
+    monkeypatch.setattr(Repository, "get_document", forbidden)
+
+    result = Retriever(conn, embedder, reranker).retrieve(
+        "what do we pay for amber glass", "factual_lookup", ["procurement"]
+    )
+
+    assert len(result.chunks) >= 2
+    assert all(chunk.document is not None for chunk in result.chunks)
+
+
+def test_a_chunk_whose_document_has_gone_is_dropped(conn, embedder, reranker):
+    """It used to fall out via a None return; batching must not turn that into a KeyError."""
+    doc = _seed(conn, embedder, make_document(), "50ml amber glass is Rs 22.10 per unit")
+    _seed(conn, embedder, make_document(source_id="file-2", title="Other"), "amber glass pricing")
+    conn.execute("DELETE FROM documents WHERE id = %s", (doc.id,))
+    conn.commit()
+
+    result = Retriever(conn, embedder, reranker).retrieve(
+        "what do we pay for amber glass", "factual_lookup", ["procurement"]
+    )
+
+    assert all(chunk.document.id != doc.id for chunk in result.chunks)
+
+
 def test_trace_records_every_stage(conn, embedder, reranker):
     _seed(conn, embedder, make_document(), "50ml amber glass is Rs 22.10 per unit")
     retriever = Retriever(conn, embedder, reranker)

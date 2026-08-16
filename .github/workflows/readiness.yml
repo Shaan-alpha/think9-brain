@@ -7,13 +7,19 @@ name: Check the API can actually answer
 #
 # /ready takes a connection from the pool and runs a query, so it fails when answers fail.
 #
-# Hourly rather than every ten minutes on purpose. Each check wakes Neon's compute, which
-# then stays up for about five minutes before suspending again. Hourly costs roughly two
-# compute-hours a day against the free plan's 191.9 a month; running it as often as the
-# keepalive would hold the database awake permanently and blow that budget in a fortnight.
+# Hourly, and inside the keepalive's window rather than around the clock. Two budgets make
+# that the right shape:
+#
+# - Render's free instance hours are shared by four services in this workspace. Checking
+#   while the keepalive already holds this one awake costs no extra instance time; checking
+#   at 3am would wake it for fifteen minutes to learn nothing.
+# - Each check also wakes Neon's compute, which then stays up about five minutes. Twelve a
+#   day is roughly an hour of compute against the free plan's 191.9 a month. Running this
+#   as often as the keepalive would hold the database awake permanently and spend that
+#   budget in a fortnight.
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 4-15 * * *"
   workflow_dispatch:
 
 jobs:

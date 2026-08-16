@@ -7,7 +7,17 @@ services:
   - type: web
     name: think9-brain-api
     runtime: python
-    plan: starter
+    # The running service is on the free plan, which sleeps after 15 minutes idle and
+    # draws on 750 instance hours shared across every free service in the workspace.
+    #
+    # This file does not drive that service: it was created through the Render API, so a
+    # blueprint sync is not what deploys it. Changing anything here without a matching
+    # `PATCH /v1/services/{id}` changes nothing but this file, which has already cost one
+    # wasted deploy cycle. It is kept accurate so it does not mislead.
+    plan: free
+    # Singapore is close to the users and far from the database, which is in Neon's
+    # us-east-2. Every query in a request crosses the Pacific; moving the Neon project to
+    # an Asian region is the remaining latency win, and means migrating the data.
     region: singapore
     rootDir: backend
     # The build downloads the ONNX weights into the image. Fetching them at request time
