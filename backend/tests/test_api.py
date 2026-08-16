@@ -1,6 +1,8 @@
 from datetime import date
 from uuid import uuid4
 
+import psycopg
+import pytest
 from fastapi.testclient import TestClient
 
 from think9.api.main import app, get_brain
@@ -16,8 +18,13 @@ CITATION = Citation(
 
 
 class StubBrain:
-    def __init__(self):
+    def __init__(self, database_up: bool = True):
         self.asked: list[tuple[str, list[str]]] = []
+        self._database_up = database_up
+
+    def ready(self):
+        if not self._database_up:
+            raise psycopg.OperationalError("the connection is closed")
 
     def ask(self, question, user_groups, user_id):
         self.asked.append((question, user_groups))
@@ -47,6 +54,23 @@ def client(brain=None) -> TestClient:
 
 def test_health_reports_ok():
     assert client().get("/health").json()["status"] == "ok"
+
+
+def test_ready_reports_ready_when_the_database_answers():
+    assert client().get("/ready").json()["status"] == "ready"
+
+
+def test_ready_fails_when_the_database_is_gone_even_though_health_passes():
+    """The distinction that hid a real outage.
+
+    A dropped connection left `/health` green while every question returned 500, so
+    nothing that watched the service noticed. Readiness has to fail where liveness cannot.
+    """
+    unreachable = client(StubBrain(database_up=False))
+
+    assert unreachable.get("/health").json()["status"] == "ok"
+    with pytest.raises(psycopg.OperationalError):
+        unreachable.get("/ready")
 
 
 def test_ask_returns_the_answer_with_citations_and_as_of():

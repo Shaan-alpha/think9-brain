@@ -15,21 +15,22 @@ from think9.gates.digest import gap_digest
 from think9.retrieval.embed import Embedder
 from think9.retrieval.rerank import Reranker
 from think9.retrieval.retriever import Retriever
-from think9.store.db import connect
+from think9.store.db import make_pool
 from think9.store.repository import Repository
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    """Load the models and open the connection before serving any request.
+    """Load the models and open the pool before serving any request.
 
     Doing it lazily on first request meant a container that had recycled downloaded the
     reranker weights while the embedder was already resident, and a 512 MB box killed it
     mid-download — which the caller saw as a 502 on a question rather than as a failed
     deploy. Failing here instead makes a broken boot visible as a broken boot.
     """
-    get_brain()
+    brain = get_brain()
     yield
+    brain.pool.close()
 
 
 app = FastAPI(title="Think9 Brain", lifespan=lifespan)
@@ -55,23 +56,48 @@ class AskRequest(BaseModel):
 
 
 class Brain:
-    """Holds the one long-lived connection and the loaded ONNX models.
+    """Holds the loaded ONNX models, and a pool to borrow a connection from per request.
 
-    Both are expensive to create and cheap to keep, which is why this runs on a warm
-    container rather than a serverless function.
+    The models are expensive to create, cheap to keep and safe to share, which is why this
+    runs on a warm container rather than a serverless function. A connection is none of
+    those things. Keeping one for the life of the process meant that when the database
+    dropped it — Neon suspends its compute after a few idle minutes — every request from
+    then on returned 500 until the container happened to restart, while `/health`, which
+    touches nothing, went on answering 200. Borrowing per request also stops concurrent
+    questions from sharing one connection and therefore one transaction.
     """
 
     def __init__(self) -> None:
         settings = get_settings()
-        self.conn = connect(settings.database_url)
-        self.repo = Repository(self.conn)
-        self.graph = build_graph(Retriever(self.conn, Embedder(), Reranker()), self.repo, LLM())
+        self.pool = make_pool(settings.database_url)
+        self._embedder = Embedder()
+        self._reranker = Reranker()
+        self._llm = LLM()
 
     def ask(self, question: str, user_groups: list[str], user_id: str):
-        answer = graph_ask(self.graph, question, user_groups, user_id)
+        with self.pool.connection() as conn:
+            repo = Repository(conn)
+            # Compiling the graph costs about 5 ms against a request that takes seconds,
+            # which is a price worth paying to keep the connection request-scoped.
+            graph = build_graph(Retriever(conn, self._embedder, self._reranker), repo, self._llm)
+            answer = graph_ask(graph, question, user_groups, user_id)
+            self._log(repo, question, user_id, answer)
+        return answer
+
+    def digest(self, limit: int = 20):
+        with self.pool.connection() as conn:
+            return gap_digest(Repository(conn), limit)
+
+    def ready(self) -> None:
+        """Prove the database is actually reachable. Raises if it is not."""
+        with self.pool.connection() as conn:
+            conn.execute("SELECT 1")
+
+    @staticmethod
+    def _log(repo: Repository, question: str, user_id: str, answer) -> None:
         # Every answer must be reconstructable after the fact, and every refusal is a line
         # in the documentation backlog.
-        self.repo.log_query(
+        repo.log_query(
             user_id=user_id,
             question=question,
             route=str(answer.trace.get("route", "unknown")),
@@ -91,10 +117,6 @@ class Brain:
             as_of=answer.as_of,
             trace=answer.trace,
         )
-        return answer
-
-    def digest(self, limit: int = 20):
-        return gap_digest(self.repo, limit)
 
 
 @lru_cache(maxsize=1)
@@ -104,6 +126,11 @@ def get_brain() -> Brain:
 
 @app.get("/health")
 def health() -> dict:
+    """Liveness only: is this process up. Deliberately touches nothing.
+
+    Something has to stay this cheap for the keep-awake ping, which runs every ten minutes
+    and must not hold the database open — see `/ready` for the question this cannot answer.
+    """
     return {"status": "ok"}
 
 
@@ -134,3 +161,15 @@ def ask_endpoint(request: AskRequest, brain: BrainDep) -> dict:
 @app.get("/digest")
 def digest_endpoint(brain: BrainDep) -> dict:
     return {"gaps": brain.digest()}
+
+
+@app.get("/ready")
+def ready_endpoint(brain: BrainDep) -> dict:
+    """Readiness: can this process actually answer, database included.
+
+    `/health` returning 200 while every question returned 500 is exactly how a dead
+    connection stayed invisible for hours. This is the endpoint to check when the app
+    claims to be up and is not.
+    """
+    brain.ready()
+    return {"status": "ready"}

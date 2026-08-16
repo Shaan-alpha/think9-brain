@@ -16,6 +16,11 @@ services:
     buildCommand: pip install uv && uv sync --frozen && uv run python -m think9.warm_models
     # One worker deliberately: each would load its own copy of both models (~300 MB).
     startCommand: uv run uvicorn think9.api.main:app --host 0.0.0.0 --port $PORT --workers 1
+    # /health, not /ready, and deliberately so. Render probes this every few seconds; a
+    # path that queries Postgres would hold Neon's compute awake permanently and burn the
+    # free plan's monthly compute hours in about a week. It would also let one database
+    # blip restart a container that was serving fine. /ready exists for the hourly check
+    # in .github/workflows/readiness.yml, which is where that question belongs.
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION

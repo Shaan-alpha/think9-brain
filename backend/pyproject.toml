@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Think9 Brain — grounded institutional memory over a synthetic multi-brand corpus"
 requires-python = ">=3.12"
 dependencies = [
-    "psycopg[binary]>=3.2",
+    "psycopg[binary,pool]>=3.2",
     "pgvector>=0.3",
     "fastembed>=0.8",
     "numpy>=2.0",

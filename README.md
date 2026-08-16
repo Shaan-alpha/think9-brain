@@ -13,8 +13,9 @@ Six one-click questions cover every behaviour below. Each answer opens its worki
 each retrieval arm found, what the temporal layer held back, and what the verifier struck
 out with the reason.
 
-**API:** <https://think9-brain-api.onrender.com> — `/health` for status, `POST /ask` to
-query, `GET /digest` for the questions it could not answer.
+**API:** <https://think9-brain-api.onrender.com> — `/health` for liveness, `/ready` for
+liveness *and* a working database, `POST /ask` to query, `GET /digest` for the questions
+it could not answer.
 
 ```bash
 curl -s https://think9-brain-api.onrender.com/ask \
@@ -24,7 +25,14 @@ curl -s https://think9-brain-api.onrender.com/ask \
 
 Hosted on Render's free tier, which sleeps after 15 minutes idle. The first request after
 a sleep waits for the container and the ONNX weights to load — around a minute. Every
-request after that is warm.
+request after that is warm, and a warm answer takes roughly half a minute: the free
+instance gets a fraction of a CPU, and three model calls and a dozen queries to a database
+in another region all have to happen before anything is returned.
+
+The database sleeps too — Neon suspends its compute after a few idle minutes and drops
+every open connection — so the API borrows a connection per request from a pool that
+checks it first, rather than holding one for the life of the process. `/health` cannot see
+that failure, which is what `/ready` is for.
 
 > **The corpus is synthetic.** Brands, vendors, people, prices and documents are invented
 > for this prototype. No real Think9 data appears anywhere in it. The generator is

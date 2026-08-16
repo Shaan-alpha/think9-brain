@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnswerCard } from "@/components/AnswerCard";
 import { TracePanel } from "@/components/TracePanel";
-import { ask } from "@/lib/api";
+import { AskAborted, ask } from "@/lib/api";
 import type { AskResponse } from "@/lib/types";
 
 /* The behaviours the prototype claims, as one click each. */
@@ -27,19 +27,56 @@ export default function Home() {
   const [result, setResult] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  /* The request currently allowed to write to the page.
+   *
+   * Asking a second question while the first is still running used to leave both in
+   * flight against a single small instance: they slowed each other down, and whichever
+   * finished last won the render — so the answer on screen could belong to the question
+   * above it. The newest question wins, and the one it replaced is cancelled rather than
+   * left to compete for the same instance. */
+  const inFlight = useRef<AbortController | null>(null);
+
+  useEffect(() => () => inFlight.current?.abort(), []);
 
   async function run(q: string) {
     if (!q.trim()) return;
+
+    inFlight.current?.abort();
+    const controller = new AbortController();
+    inFlight.current = controller;
+    const isCurrent = () => inFlight.current === controller;
+
     setQuestion(q);
     setPending(true);
     setError(null);
+    setNotice(null);
+    setResult(null);
+
     try {
-      setResult(await ask(q));
+      const answer = await ask(q, {
+        signal: controller.signal,
+        onRetry: (attempt, reason) => {
+          if (!isCurrent()) return;
+          setNotice(
+            `Attempt ${attempt} — ${reason}. Waking the API and trying again; this is the ` +
+              "free plan starting from cold, not a failure yet.",
+          );
+        },
+      });
+      if (!isCurrent()) return;
+      setResult(answer);
     } catch (e) {
-      setResult(null);
+      // A cancelled request has already been replaced by a newer one. Reporting it would
+      // show an error for something the visitor deliberately moved on from.
+      if (e instanceof AskAborted || !isCurrent()) return;
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
-      setPending(false);
+      if (isCurrent()) {
+        setPending(false);
+        setNotice(null);
+      }
     }
   }
 
@@ -114,14 +151,24 @@ export default function Home() {
       </div>
 
       {pending && (
-        <p
+        <div
           className="rounded-sm border px-3 py-2 text-sm"
           style={{ borderColor: "var(--rule)", color: "var(--muted)" }}
         >
-          Retrieving, then checking every claim against the section it cites. The API
-          sleeps when idle on a free plan, so a first question after a quiet spell waits
-          about a minute for it to wake.
-        </p>
+          <p>
+            Retrieving, then checking every claim against the section it cites. An answer
+            takes about half a minute; the API sleeps when idle on a free plan, so a first
+            question after a quiet spell waits about a minute more for it to wake.
+          </p>
+          {notice && (
+            <p className="mt-2" style={{ color: "var(--amber)" }}>
+              {notice}
+            </p>
+          )}
+          <p className="mt-2 text-xs">
+            Asking another question now replaces this one rather than queueing behind it.
+          </p>
+        </div>
       )}
 
       {error && (
