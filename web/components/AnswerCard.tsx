@@ -24,18 +24,32 @@ function formatDate(iso: string): string {
   });
 }
 
+const MARKER = /^\[c:([0-9a-fA-F-]+)\]$/;
+
 /** Swap the model's [c:<uuid>] markers for numbered references tied to the citation list. */
 function renderClaim(text: string, citations: Citation[]) {
   const index = new Map(citations.map((c, i) => [c.chunk_id, i + 1]));
   const parts = text.split(/(\[c:[0-9a-fA-F-]+\])/g);
   return parts.map((part, i) => {
-    const match = part.match(/^\[c:([0-9a-fA-F-]+)\]$/);
-    if (!match) return <span key={i}>{part}</span>;
+    const match = part.match(MARKER);
+    if (!match) {
+      // The model writes "...in a home setting [c:uuid]." — keeping that space left the
+      // reference floating between the word it belongs to and the full stop it precedes.
+      // A reference hugs its claim, so the space before one is dropped.
+      const followedByMarker = parts[i + 1] !== undefined && MARKER.test(parts[i + 1]);
+      return <span key={i}>{followedByMarker ? part.replace(/\s+$/, "") : part}</span>;
+    }
     const n = index.get(match[1]);
     if (!n) return null;
+    // Two references in a row are separated by a comma, not a margin: "1" and "2" side by
+    // side read as "12", and a CSS gap does not survive being copied or read aloud.
+    // Splitting on adjacent markers leaves an empty string between them, so the lookback
+    // has to skip those rather than test the immediately preceding part.
+    const previous = parts.slice(0, i).findLast((p) => p !== "");
+    const afterMarker = previous !== undefined && MARKER.test(previous);
     return (
-      <sup key={i} className="ev ml-0.5 text-[0.65em]" style={{ color: "var(--amber)" }}>
-        {n}
+      <sup key={i} className="ev text-[0.65em]" style={{ color: "var(--amber)" }}>
+        {afterMarker ? `,${n}` : n}
       </sup>
     );
   });
@@ -107,23 +121,35 @@ export function AnswerCard({ result }: { result: AskResponse }) {
       {result.citations.length > 0 && (
         <div className="mt-6 border-t pt-4" style={{ borderColor: "var(--rule)" }}>
           <p className="label mb-2">Sources</p>
-          <ol className="space-y-1.5">
+          <ol className="space-y-2.5">
             {result.citations.map((citation, i) => (
               <li key={citation.chunk_id} className="flex gap-2 text-sm">
                 <span className="ev shrink-0" style={{ color: "var(--amber)" }}>
                   {i + 1}
                 </span>
-                <a
-                  href={citation.deep_link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ev underline decoration-dotted underline-offset-4"
-                >
-                  {citation.document_title}
-                </a>
-                <span className="ev hidden shrink-0 sm:inline" style={{ color: "var(--muted)" }}>
-                  › {citation.heading_path} · {citation.effective_date}
-                </span>
+                {/* The filename and its heading path are stacked rather than sharing a
+                    line. Side by side, the path was `shrink-0` and the filename was not,
+                    so the filename was the only item flex could take width from: it
+                    collapsed to its narrowest fitting width and broke at every hyphen,
+                    turning `grove-mango-decision-memo-2025-07.md` into six stacked
+                    fragments. `min-w-0` is what lets this column shrink to the card
+                    instead of pushing that cost onto its contents. */}
+                <div className="min-w-0">
+                  <a
+                    href={citation.deep_link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="ev underline decoration-dotted underline-offset-4"
+                  >
+                    {citation.document_title}
+                  </a>
+                  {/* Shown at every width. The heading path is the span an answer is
+                      grounded in and the date is what makes it current, so neither is
+                      decoration that can be hidden on a phone. */}
+                  <span className="ev mt-0.5 block text-xs" style={{ color: "var(--muted)" }}>
+                    {citation.heading_path} · {citation.effective_date}
+                  </span>
+                </div>
               </li>
             ))}
           </ol>
