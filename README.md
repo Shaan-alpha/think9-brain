@@ -1,4 +1,4 @@
-# The Think9 Brain — proof of concept
+# The Think9 Brain: proof of concept
 
 An institutional-memory assistant for a house of brands. It answers operational questions
 from the documents a company already has, cites the exact section it used, states the date
@@ -9,11 +9,11 @@ architecture. This is the runnable subset that tests it.
 
 ### ▶ Try it: **<https://think9-brain.vercel.app>**
 
-Six one-click questions cover every behaviour below. Each answer opens its working — what
+Six one-click questions cover every behaviour below. Each answer opens its working: what
 each retrieval arm found, what the temporal layer held back, and what the verifier struck
 out with the reason.
 
-**API:** <https://think9-brain-api.onrender.com> — `/health` for liveness, `/ready` for
+**API:** <https://think9-brain-api.onrender.com>. `/health` for liveness, `/ready` for
 liveness *and* a working database, `POST /ask` to query, `GET /digest` for the questions
 it could not answer.
 
@@ -24,15 +24,15 @@ curl -s https://think9-brain-api.onrender.com/ask \
 ```
 
 Hosted on Render's free tier, which sleeps after 15 minutes idle. The first request after
-a sleep waits for the container and the ONNX weights to load — around a minute. Every
+a sleep waits for the container and the ONNX weights to load, around a minute. Every
 request after that is warm, and a warm answer takes roughly twenty seconds: the free
 instance gets a fraction of a CPU, and three model calls and five queries to a database in
 another region all have to happen before anything is returned. A scheduled ping keeps the
-service awake through the working day — not around the clock, because those free instance
+service awake through the working day, not around the clock, because those free instance
 hours are shared with every other free service in the same workspace.
 
-The database sleeps too — Neon suspends its compute after a few idle minutes and drops
-every open connection — so the API borrows a connection per request from a pool that
+The database sleeps too (Neon suspends its compute after a few idle minutes and drops
+every open connection) so the API borrows a connection per request from a pool that
 checks it first, rather than holding one for the life of the process. `/health` cannot see
 that failure, which is what `/ready` is for.
 
@@ -59,11 +59,11 @@ regression.
 | *What is our standard freight insurance excess for sea shipments?* | **Refused.** Names the nearest evidence and routes to Arun Menon |
 | *Which brands buy from Korent, and on what terms?* | **Composed** from two brands' quotes, both cited |
 | *What is Korent's minimum order quantity?* | **Contested.** Surfaces both 5,000 and 8,000 with their sources and names the arbiter |
-| *Why did we discontinue the mango variant?* | **Answered from a superseded document** — history is what the question is about |
+| *Why did we discontinue the mango variant?* | **Answered from a superseded document**: history is what the question is about |
 | *Show me total spend by vendor last quarter* | **Declined.** "That requires the procurement tables, which this prototype does not index" |
 
 The fourth row is the one worth dwelling on. Shown both conflicting figures, the model
-wrote *"the more recent spec sheet supersedes the earlier one"* — a supersession neither
+wrote *"the more recent spec sheet supersedes the earlier one"*; a supersession neither
 document states. The verifier stripped it. That is the §1 failure mode, caught by the §2.5
 mechanism, on a fact the corpus was built to bait.
 
@@ -77,22 +77,22 @@ they came out; the full account is in [`evalkit/error_analysis.md`](evalkit/erro
 
 | Metric | Target | Dev (60 q) | Held-out (42 q) | |
 |---|---|---|---|---|
-| Accuracy | — | 0.900 | 0.881 | |
+| Accuracy | - | 0.900 | 0.881 | |
 | Groundedness | ≥ 0.95 | 0.848 | 0.849 | **missed** |
 | Refusal precision | ≥ 0.90 | 0.870 | 0.800 | **missed** |
-| Refusal recall | — | 1.000 | **1.000** | |
-| Recall@k | — | 0.925 | 0.867 | |
+| Refusal recall | - | 1.000 | **1.000** | |
+| Recall@k | - | 0.925 | 0.867 | |
 | As-of correctness | 1.00 | 1.000 | 0.667 | **missed** |
 
-**Refusal recall is 1.000 on both sets.** Across 32 unanswerable questions — invented
-vendors, plausible-but-absent figures, out-of-scope functions — the system never once
+**Refusal recall is 1.000 on both sets.** Across 32 unanswerable questions (invented
+vendors, plausible-but-absent figures, out-of-scope functions) the system never once
 produced an answer. Every miss is over-caution or a retrieval failure; none is invention.
 
 Two numbers need reading carefully, and both are argued in the error analysis:
 
 - **Groundedness is measured over drafted claims, not delivered ones.** Unsupported claims
   are stripped before an answer returns, so delivered groundedness is 1.000 by
-  construction. 0.849 is the share of what the model *proposed* that survived — a measure
+  construction. 0.849 is the share of what the model *proposed* that survived; a measure
   of how much work the verifier is doing.
 - **The as-of miss is a refusal, not a stale answer.** Zero temporal questions quoted a
   superseded value. The metric scores a refusal as incorrect, which is right for decision
@@ -113,13 +113,13 @@ what it measures proves nothing.
 Two findings sharper than the proposal predicted:
 
 **The cross-encoder, not hybrid search, is what makes refusal possible.** Coverage
-separation — the gap between mean coverage on answerable and unanswerable questions — is
+separation (the gap between mean coverage on answerable and unanswerable questions) is
 0.785 with reranking and 0.002 without. Reciprocal rank fusion assigns nearly identical
 scores to everything, so fused scores carry ordering but no confidence. Without the
 reranker no threshold could separate "I know this" from "I don't".
 
 **The temporal layer's job is exclusion, not reordering.** Whether a superseded document
-*leads* the ranking is 0.000 in every configuration — the reranker orders correctly
+*leads* the ranking is 0.000 in every configuration; the reranker orders correctly
 unaided, so the obvious metric shows nothing. But demoted chunks are dropped from the
 synthesiser's context, and turning the layer off puts a superseded document in front of
 the model on **100%** of temporal questions, one sentence from being quoted.
@@ -186,7 +186,7 @@ Weeks 3–4 of the proposal's plan, left out deliberately rather than gestured a
 
 Requires Postgres with `pgvector` (a free Neon project is enough) and, for generated
 answers, an OpenAI-compatible API key. **The retrieval evaluation and every ablation run
-without any API key** — embeddings and reranking are local ONNX.
+without any API key**; embeddings and reranking are local ONNX.
 
 ```bash
 cp backend/.env.example backend/.env      # fill in DATABASE_URL, TEST_DATABASE_URL, LLM_API_KEY
@@ -224,7 +224,7 @@ cd web && npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 Postgres-dependent tests skip when `TEST_DATABASE_URL` is unset, so the suite runs on a
-clean clone. `TEST_DATABASE_URL` must point at a different branch from `DATABASE_URL` — the
+clean clone. `TEST_DATABASE_URL` must point at a different branch from `DATABASE_URL`; the
 fixture truncates.
 
 ---
@@ -240,7 +240,7 @@ fixture truncates.
 | [`corpus/README.md`](corpus/README.md) | The synthetic corpus and its five seeded facts |
 
 A note on the last one. Every defect found after the retrieval stack was complete was found
-by running the system against the real corpus, not by the test suite — which was green
+by running the system against the real corpus, not by the test suite, which was green
 throughout. Threshold calibration, score-scale mismatches, prompt-level model behaviour and
 real-data encoding all live outside what unit tests assert. That is why `scripts/smoke.py`
 exists and why it is part of the verification loop rather than a debugging aid.
